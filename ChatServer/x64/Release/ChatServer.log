@@ -1,0 +1,26 @@
+﻿빌드 시작: 2018-03-26 오후 8:21:44
+     1>2 노드의 "C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\ChatServer\ChatServer\ChatServer.vcxproj" 프로젝트(Build 대상)입니다.
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /sdl /Od /Oi /GL /D WIN32 /D NDEBUG /D _CONSOLE /D _LIB /D _UNICODE /D UNICODE /Gm- /EHsc /MT /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"x64\Release\ChatServer.pch" /Fo"x64\Release\\" /Fd"x64\Release\vc120.pdb" /Gd /TP /errorReport:prompt NetServer.cpp
+         NetServer.cpp
+     1>NetServer.cpp(250): warning C4805: '==' : 연산에 'bool' 형식과 'long' 형식을 함께 사용하는 것은 안전하지 않습니다.
+     1>NetServer.cpp(601): warning C4805: '==' : 연산에 'bool' 형식과 'long' 형식을 함께 사용하는 것은 안전하지 않습니다.
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\ChatServer\x64\Release\ChatServer.exe" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\ChatServer\x64\Release\ChatServer.pdb" /SUBSYSTEM:CONSOLE /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\ChatServer\x64\Release\ChatServer.lib" /MACHINE:X64 x64\Release\APIHook.obj
+         x64\Release\ChatServer.obj
+         x64\Release\CrashDump.obj
+         x64\Release\LanServer.obj
+         x64\Release\main.obj
+         x64\Release\NetServer.obj
+         x64\Release\NPacket.obj
+         x64\Release\Profiler.obj
+         x64\Release\stdafx.obj
+         x64\Release\_Config.obj
+         코드를 생성하고 있습니다.
+         코드를 생성했습니다.
+         ChatServer.vcxproj -> C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\ChatServer\x64\Release\ChatServer.exe
+     1>"C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\ChatServer\ChatServer\ChatServer.vcxproj" 프로젝트를 빌드했습니다(Build 대상).
+
+빌드했습니다.
+
+경과 시간: 00:00:03.06
