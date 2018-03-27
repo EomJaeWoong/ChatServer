@@ -148,8 +148,8 @@ private :
 	/////////////////////////////////////////////////////////////////////////////////
 	// Send
 	/////////////////////////////////////////////////////////////////////////////////
-	void						SendPacket_One(__int64 iSessionID, CNPacket *pPacket);
-	void						SendPacket_Around(__int64 iSessionID, CNPacket *pPacket, bool bSendMe = false);
+	void						SendPacket_One(CLIENT *pClient, CNPacket *pPacket);
+	void						SendPacket_Around(CLIENT *pClient, CNPacket *pPacket, bool bSendMe = false);
 	void						SendPacket_Broadcast(CNPacket *pPacket);
 
 

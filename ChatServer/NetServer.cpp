@@ -32,6 +32,7 @@ CNetServer::CNetServer()
 	for (int iCnt = eMAX_SESSION - 1; iCnt >= 0; iCnt--)
 	{
 		_Session[iCnt] = new SESSION;
+
 		///////////////////////////////////////////////////////////////////////////////////
 		// 세션 정보 구조체 초기화
 		///////////////////////////////////////////////////////////////////////////////////
@@ -390,6 +391,7 @@ int					CNetServer::AccpetThread_update()
 		/////////////////////////////////////////////////////////////////////
 		InterlockedIncrement64((LONG64 *)&_Session[iBlankIndex]->_IOBlock->_iIOCount);
 		InterlockedExchange64((LONG64 *)&_Session[iBlankIndex]->_IOBlock->_iReleaseFlag, FALSE);
+
 		OnClientJoin(&_Session[iBlankIndex]->_SessionInfo, _Session[iBlankIndex]->_iSessionID);
 
 		InterlockedIncrement((long *)&_lSessionCount);
@@ -784,6 +786,7 @@ bool				CNetServer::CompleteSend(SESSION *pSession, DWORD dwTransferred)
 	pSession->_lSentPacketCnt -= iSentCnt;
 	PRO_END(L"SentPacket Remove");
 
+	OnSend(pSession->_iSessionID, dwTransferred);
 	//////////////////////////////////////////////////////////////////////////////
 	// 다 보냈다고 Flag 변환
 	//////////////////////////////////////////////////////////////////////////////
@@ -846,7 +849,8 @@ int					CNetServer::GetBlankSessionIndex()
 	int iBlankIndex;
 
 	if (_pBlankStack->isEmpty())
-		iBlankIndex = -1;
+		CCrashDump::Crash();
+
 	else
 		_pBlankStack->Pop(&iBlankIndex);
 
@@ -894,11 +898,16 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 	///////////////////////////////////////////////////////////////////////////////////////
 	if (!InterlockedCompareExchange128(
 		(LONG64 *)pSession->_IOBlock,
-		(LONG64)true,
+		(LONG64)TRUE,
 		(LONG64)0,
 		(LONG64 *)&stCompareBlock
 		))
 		return;
+
+	if ((0 != pSession->_IOBlock->_iIOCount) || (false == pSession->_IOBlock->_iReleaseFlag))
+		CCrashDump::Crash();
+
+	closesocket(pSession->_SessionInfo._Socket);
 
 	pSession->_iSessionID = -1;
 	pSession->_SessionInfo._Socket = INVALID_SOCKET;
@@ -921,11 +930,11 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 	
 	pSession->_lSentPacketCnt = 0;
 
-	InterlockedExchange((long *)&pSession->_bSendFlag, false);
+	InterlockedExchange((LONG *)&pSession->_bSendFlag, false);
+	InterlockedExchange((LONG *)&pSession->_bSendFlagWorker, false);
+	OnClientLeave(iSessionID);
 
 	InsertBlankSessionIndex(GET_SESSIONINDEX(iSessionID));
-
-	OnClientLeave(iSessionID);
 
 	InterlockedDecrement((LONG *)&_lSessionCount);
 }

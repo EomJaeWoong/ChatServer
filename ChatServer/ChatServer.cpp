@@ -300,7 +300,7 @@ bool						CChatServer::PacketProc_ReqLogin(__int64 iSessionID, CNPacket *pPacket
 	////////////////////////////////////////////////////////////////////////////
 	if (nullptr == pClient)
 	{
-		pClient->bDisconnect = FALSE;
+		pClient->bDisconnect = true;
 		Disconnect(iSessionID);
 		byStatus = 0;
 	}
@@ -327,8 +327,7 @@ bool						CChatServer::PacketProc_ReqLogin(__int64 iSessionID, CNPacket *pPacket
 	// 패킷 만들어 보내기
 	////////////////////////////////////////////////////////////////////////////
 	pSendPacket = MakePacket_ResLogin(pClient->iAccountNo, byStatus);
-	SendPacket_One(pClient->iSessionID, pSendPacket);
-
+	SendPacket_One(pClient, pSendPacket);
 
 	pSendPacket->Free();
 
@@ -358,7 +357,7 @@ bool						CChatServer::PacketProc_ReqSectorMove(__int64 iSessionID, CNPacket *pP
 	*pPacket >> iAccountNo;
 	if (iAccountNo != pClient->iAccountNo)
 	{
-		pClient->bDisconnect = FALSE;
+		pClient->bDisconnect = true;
 		Disconnect(iSessionID);
 		return false;
 	}
@@ -369,7 +368,8 @@ bool						CChatServer::PacketProc_ReqSectorMove(__int64 iSessionID, CNPacket *pP
 	*pPacket >> wSectorX;
 	*pPacket >> wSectorY;
 
-	
+	pPacket->Free();
+
 	////////////////////////////////////////////////////////////////////////////
 	// 섹터 업데이트
 	////////////////////////////////////////////////////////////////////////////
@@ -379,9 +379,8 @@ bool						CChatServer::PacketProc_ReqSectorMove(__int64 iSessionID, CNPacket *pP
 	// 패킷 만들어 보내기
 	////////////////////////////////////////////////////////////////////////////
 	pSendPacket = MakePacket_ResSectorMove(pClient->iAccountNo, pClient->shSectorX, pClient->shSectorY);
-	SendPacket_One(pClient->iSessionID, pSendPacket);
+	SendPacket_One(pClient, pSendPacket);
 
-	pPacket->Free();
 	pSendPacket->Free();
 
 	return true;
@@ -408,10 +407,13 @@ bool						CChatServer::PacketProc_ReqMessage(__int64 iSessionID, CNPacket *pPack
 	*pPacket >> iAccountNo;
 	if (iAccountNo != pClient->iAccountNo)
 	{
-		pClient->bDisconnect = FALSE;
+		pClient->bDisconnect = true;
 		Disconnect(iSessionID);
 		return false;
 	}
+
+	if (pClient->shSectorX == -1)
+		CCrashDump::Crash();
 
 	////////////////////////////////////////////////////////////////////////////
 	// 메시지 길이 뽑고 메시지 뽑기
@@ -427,7 +429,7 @@ bool						CChatServer::PacketProc_ReqMessage(__int64 iSessionID, CNPacket *pPack
 	// 패킷 만들어 보내기
 	////////////////////////////////////////////////////////////////////////////
 	pSendPacket = MakePacket_ResMessage(pClient->iAccountNo, pClient->szID, pClient->szNickname, wMessageLen, pMessage);
-	SendPacket_Around(pClient->iSessionID, pSendPacket, true);
+	SendPacket_Around(pClient, pSendPacket, true);
 
 	delete[] pMessage;
 	pPacket->Free();
@@ -515,31 +517,32 @@ CNPacket*					CChatServer::MakePacket_ResMessage(__int64 iAccountNo, WCHAR *szID
 /////////////////////////////////////////////////////////////////////////////////
 // Send
 /////////////////////////////////////////////////////////////////////////////////
-void						CChatServer::SendPacket_One(__int64 iSessionID, CNPacket *pPacket)
+void						CChatServer::SendPacket_One(CLIENT *pClient, CNPacket *pPacket)
 {
-	SendPacket(iSessionID, pPacket);
+	SendPacket(pClient->iSessionID, pPacket);
 }
 
-void						CChatServer::SendPacket_Around(__int64 iSessionID, CNPacket *pPacket, bool bSendMe)
+void						CChatServer::SendPacket_Around(CLIENT *pClient, CNPacket *pPacket, bool bSendMe)
 {
-	CLIENT *pClient = SearchClient(iSessionID);
 	st_SECTOR_AROUND stAroundSector;
-
-	if (nullptr == pClient)
-		return;
-	
 	GetSectorAround(pClient->shSectorX, pClient->shSectorY, &stAroundSector);
 
 	SectorIter iter;
 	for (int iCnt = 0; iCnt < stAroundSector.iCount; iCnt++)
 	{
+		CLIENT * pSendClient = nullptr;
 		SECTOR &Sector = _Sector[stAroundSector.Around[iCnt].iY][stAroundSector.Around[iCnt].iX];
 		for (iter = Sector.begin(); iter != Sector.end(); iter++)
 		{
-			if (!bSendMe && (iSessionID == pClient->iSessionID))
+			if (!bSendMe)
 				continue;
 
-			SendPacket_One(*iter, pPacket);
+			pSendClient = SearchClient(*iter);
+
+			if (pSendClient->shSectorX == -1)
+				CCrashDump::Crash();
+
+			SendPacket_One(pSendClient, pPacket);
 		}
 	}
 }
@@ -550,10 +553,7 @@ void						CChatServer::SendPacket_Broadcast(CNPacket *pPacket)
 
 	ClientIter iter;
 	for (iter = _Client.begin(); iter != _Client.end(); iter++)
-	{
-		pClient = (*iter).second;
-		SendPacket_One(pClient->iSessionID, pPacket);
-	}
+		SendPacket_One(iter->second, pPacket);
 }
 
 
@@ -598,12 +598,17 @@ bool						CChatServer::DeleteClient(__int64 iSessionID)
 		_ClientMemoryPool.Free(pClient);
 		_Client.erase(iter);
 
+		if ((-1 != pClient->shSectorX) && (-1 != pClient->shSectorY))
+			_Sector[pClient->shSectorY][pClient->shSectorX].remove(pClient->iSessionID);
+
 		InterlockedDecrement(&_lPlayerCount);
 
 		return true;
 	}
 
-	CCrashDump::Crash();
+	else if (iter == _Client.end())
+		CCrashDump::Crash();
+
 	return false;
 }
 

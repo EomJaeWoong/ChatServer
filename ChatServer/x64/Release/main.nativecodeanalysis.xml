@@ -1,2 +1,0 @@
-<?xml version='1.0' encoding='UTF-8'?>
-<DEFECTS><DEFECT><SFA><FILEPATH>c:\users\eomjaewoong\documents\visual studio 2013\projects\chatserver\chatserver\</FILEPATH><FILENAME>main.cpp</FILENAME><LINE>6</LINE><COLUMN>4</COLUMN></SFA><DEFECTCODE>6262</DEFECTCODE><DESCRIPTION>함수에서 '200748'바이트의 스택을 사용하는데 이 크기가 /analyze:stacksize '16384'을(를) 초과합니다. 일부 데이터를 힙으로 이동하십시오.</DESCRIPTION><FUNCTION>wmain</FUNCTION><DECORATED>wmain</DECORATED><FUNCLINE>6</FUNCLINE><PATH/></DEFECT></DEFECTS>

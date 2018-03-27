@@ -10,7 +10,7 @@ private :
 		eMAX_THREAD = 50,
 
 		// 최대 세션 갯수
-		eMAX_SESSION = 20000,
+		eMAX_SESSION = 15000,
 
 		// 최대 WSABUF 갯수
 		eMAX_WSABUF = 200

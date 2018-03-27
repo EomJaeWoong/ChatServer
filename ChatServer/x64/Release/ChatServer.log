@@ -1,10 +1,33 @@
-﻿빌드 시작: 2018-03-26 오후 8:21:44
+﻿빌드 시작: 2018-03-28 오전 12:41:33
      1>2 노드의 "C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\ChatServer\ChatServer\ChatServer.vcxproj" 프로젝트(Build 대상)입니다.
      1>ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /sdl /Od /Oi /GL /D WIN32 /D NDEBUG /D _CONSOLE /D _LIB /D _UNICODE /D UNICODE /Gm- /EHsc /MT /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"x64\Release\ChatServer.pch" /Fo"x64\Release\\" /Fd"x64\Release\vc120.pdb" /Gd /TP /errorReport:prompt NetServer.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /sdl /Od /Oi /GL /D WIN32 /D NDEBUG /D _CONSOLE /D _LIB /D _UNICODE /D UNICODE /Gm- /EHsc /MT /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Yc"stdafx.h" /Fp"x64\Release\ChatServer.pch" /Fo"x64\Release\\" /Fd"x64\Release\vc120.pdb" /Gd /TP /errorReport:prompt stdafx.cpp
+         stdafx.cpp
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\chatserver\chatserver\TextParser.h(76): warning C4267: '인수' : 'size_t'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\chatserver\chatserver\NPacket.h(289): warning C4244: '초기화 중' : '__int64'에서 'unsigned int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\chatserver\chatserver\NPacket.h(291): warning C4018: '>' : signed 또는 unsigned가 일치하지 않습니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\chatserver\chatserver\NPacket.h(304): warning C4244: '초기화 중' : '__int64'에서 'unsigned int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\chatserver\chatserver\NPacket.h(306): warning C4018: '>' : signed 또는 unsigned가 일치하지 않습니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\chatserver\chatserver\NPacket.h(435): warning C4805: '==' : 연산에 'bool' 형식과 'long' 형식을 함께 사용하는 것은 안전하지 않습니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\chatserver\chatserver\NPacket.h(451): warning C4244: '인수' : 'time_t'에서 'unsigned int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\chatserver\chatserver\NPacket.h(701): warning C4267: '인수' : 'size_t'에서 'int'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+     1>c:\users\eomjaewoong\documents\visual studio 2013\projects\chatserver\chatserver\NetServer.h(226): warning C4005: 'GET_SESSIONINDEX' : 매크로 재정의
+                 c:\users\eomjaewoong\documents\visual studio 2013\projects\chatserver\chatserver\LanServer.h(226) : 'GET_SESSIONINDEX'의 이전 정의를 참조하십시오.
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /sdl /Od /Oi /GL /D WIN32 /D NDEBUG /D _CONSOLE /D _LIB /D _UNICODE /D UNICODE /Gm- /EHsc /MT /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"x64\Release\ChatServer.pch" /Fo"x64\Release\\" /Fd"x64\Release\vc120.pdb" /Gd /TP /errorReport:prompt APIHook.cpp ChatServer.cpp CrashDump.cpp LanServer.cpp NPacket.cpp NetServer.cpp Profiler.cpp _Config.cpp main.cpp
+         APIHook.cpp
+         ChatServer.cpp
+         CrashDump.cpp
+         LanServer.cpp
+     1>LanServer.cpp(244): warning C4805: '==' : 연산에 'bool' 형식과 'long' 형식을 함께 사용하는 것은 안전하지 않습니다.
+     1>LanServer.cpp(592): warning C4805: '==' : 연산에 'bool' 형식과 'long' 형식을 함께 사용하는 것은 안전하지 않습니다.
+         NPacket.cpp
          NetServer.cpp
-     1>NetServer.cpp(250): warning C4805: '==' : 연산에 'bool' 형식과 'long' 형식을 함께 사용하는 것은 안전하지 않습니다.
-     1>NetServer.cpp(601): warning C4805: '==' : 연산에 'bool' 형식과 'long' 형식을 함께 사용하는 것은 안전하지 않습니다.
+     1>NetServer.cpp(251): warning C4805: '==' : 연산에 'bool' 형식과 'long' 형식을 함께 사용하는 것은 안전하지 않습니다.
+     1>NetServer.cpp(603): warning C4805: '==' : 연산에 'bool' 형식과 'long' 형식을 함께 사용하는 것은 안전하지 않습니다.
+         Profiler.cpp
+     1>Profiler.cpp(291): warning C4267: '인수' : 'size_t'에서 'DWORD'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+         _Config.cpp
+         main.cpp
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\ChatServer\x64\Release\ChatServer.exe" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\ChatServer\x64\Release\ChatServer.pdb" /SUBSYSTEM:CONSOLE /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\EomJaeWoong\Documents\Visual Studio 2013\Projects\ChatServer\x64\Release\ChatServer.lib" /MACHINE:X64 x64\Release\APIHook.obj
          x64\Release\ChatServer.obj
@@ -23,4 +46,4 @@
 
 빌드했습니다.
 
-경과 시간: 00:00:03.06
+경과 시간: 00:00:01.81
