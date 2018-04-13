@@ -135,8 +135,8 @@ private :
 	//
 	// 릴리즈 과정을 하나의 작업으로 보고 카운트함
 	///////////////////////////////////////////////////////////////////////////////////////////
-	SESSION*					SessionGetLock(__int64 SessionID);
-	void						SessionGetUnlock(SESSION *pSession);
+	SESSION*					SessionSetLock(__int64 SessionID);
+	void						SessionSetUnlock(SESSION *pSession);
 
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Disconnection
@@ -155,7 +155,6 @@ public :
 	// 모니터링 변수
 	///////////////////////////////////////////////////////////////////////////////////////////
 	long						_lAcceptCounter;
-	long						_lAcceptTotalCounter;
 	long						_lRecvPacketCounter;
 	long						_lSendPacketCounter;
 

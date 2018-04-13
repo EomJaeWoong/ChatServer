@@ -110,7 +110,7 @@ CNetServer::~CNetServer()
 //-----------------------------------------------------------------------------------------
 bool				CNetServer::Start(WCHAR* wOpenIP, int iPort, int iWorkerThreadNum, bool bNagle, int iMaxConnect)
 {
-	int				result;;
+	int				result;
 
 	///////////////////////////////////////////////////////////////////////////////////////
 	// 府郊家南 积己
@@ -233,7 +233,7 @@ void				CNetServer::Stop()
 ///////////////////////////////////////////////////////////////////////////////////////////
 bool				CNetServer::SendPacket(__int64 iSessionID, CNPacket *pPacket)
 {
-	SESSION		*pSession = SessionGetLock(iSessionID);
+	SESSION		*pSession = SessionSetLock(iSessionID);
 	if (nullptr == pSession)
 		return false;
 
@@ -261,7 +261,7 @@ bool				CNetServer::SendPacket(__int64 iSessionID, CNPacket *pPacket)
 		InterlockedIncrement((LONG *)&_lSendPacketCounter);
 	}
 
-	SessionGetUnlock(pSession);
+	SessionSetUnlock(pSession);
 
 	return true;
 }
@@ -272,9 +272,11 @@ bool				CNetServer::SendPacket(__int64 iSessionID, CNPacket *pPacket)
 ///////////////////////////////////////////////////////////////////////////////////////////
 void				CNetServer::Disconnect(__int64 iSessionID)
 {
-	int			iSessionIndex = GET_SESSIONINDEX(iSessionID);
+	SESSION *pSession = SessionSetLock(iSessionID);
 	
-	DisconnectSession(_Session[iSessionIndex]);
+	DisconnectSession(pSession);
+
+	SessionSetUnlock(pSession);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -309,9 +311,7 @@ int					CNetServer::AccpetThread_update()
 				break;
 		}
 
-
 		InterlockedIncrement((LONG *)&_lAcceptCounter);
-		InterlockedIncrement((LONG *)&_lAcceptTotalCounter);
 
 		///////////////////////////////////////////////////////////////////////////////////
 		// 技记 立加 沥焊 积己
@@ -489,13 +489,12 @@ int					CNetServer::MonitorThread_update()
 	while (1)
 	{
 		_lAcceptTPS = _lAcceptCounter;
-		_lAcceptTotalTPS += _lAcceptTotalCounter;
+		_lAcceptTotalTPS += _lAcceptCounter;
 		_lRecvPacketTPS = _lRecvPacketCounter;
 		_lSendPacketTPS = _lSendPacketCounter;
 		_lPacketPoolTPS = CNPacket::GetPacketCount();
 
 		_lAcceptCounter = 0;
-		_lAcceptTotalCounter = 0;
 		_lRecvPacketCounter = 0;
 		_lSendPacketCounter = 0;
 
@@ -812,7 +811,7 @@ bool				CNetServer::CompleteSend(SESSION *pSession, DWORD dwTransferred)
 ///////////////////////////////////////////////////////////////////////////////////////////
 // 技记 悼扁拳		 ->		Disconnect, SendPacket
 ///////////////////////////////////////////////////////////////////////////////////////////
-SESSION*			CNetServer::SessionGetLock(__int64 iSessionID)
+SESSION*			CNetServer::SessionSetLock(__int64 iSessionID)
 {
 	int iSessionIndex = GET_SESSIONINDEX(iSessionID);
 
@@ -830,7 +829,7 @@ SESSION*			CNetServer::SessionGetLock(__int64 iSessionID)
 	return _Session[iSessionIndex];
 }
 
-void				CNetServer::SessionGetUnlock(SESSION *pSession)
+void				CNetServer::SessionSetUnlock(SESSION *pSession)
 {
 	///////////////////////////////////////////////////////////////////////////////////////
 	// 促矫 累诀 墨款飘 撤苗淋
@@ -903,9 +902,6 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 		(LONG64 *)&stCompareBlock
 		))
 		return;
-
-	if ((0 != pSession->_IOBlock->_iIOCount) || (false == pSession->_IOBlock->_iReleaseFlag))
-		CCrashDump::Crash();
 
 	closesocket(pSession->_SessionInfo._Socket);
 
