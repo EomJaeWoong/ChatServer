@@ -237,29 +237,26 @@ bool				CNetServer::SendPacket(__int64 iSessionID, CNPacket *pPacket)
 	if (nullptr == pSession)
 		return false;
 
-	if (iSessionID == pSession->_iSessionID)
-	{
-		pPacket->Encode();
+	pPacket->Encode();
 
-		PRO_BEGIN(L"Packet addref");
-		pPacket->addRef();
-		PRO_END(L"Packet addref");
+	PRO_BEGIN(L"Packet addref");
+	pPacket->addRef();
+	PRO_END(L"Packet addref");
 
-		//////////////////////////////////////////////////////////////////////////////////
-		// 남은 패킷들을 Worker에서 보낼때는 기다림
-		//////////////////////////////////////////////////////////////////////////////////
-		while (true == InterlockedCompareExchange((LONG *)&pSession->_bSendFlagWorker, true, true));
+	//////////////////////////////////////////////////////////////////////////////////
+	// 남은 패킷들을 Worker에서 보낼때는 기다림
+	//////////////////////////////////////////////////////////////////////////////////
+	while (true == InterlockedCompareExchange((LONG *)&pSession->_bSendFlagWorker, true, true));
 
-		PRO_BEGIN(L"PacketQueue Put");
-		pSession->_SendQ.Put(pPacket);
-		PRO_END(L"PacketQueue Put");
+	PRO_BEGIN(L"PacketQueue Put");
+	pSession->_SendQ.Put(pPacket);
+	PRO_END(L"PacketQueue Put");
 
-		PRO_BEGIN(L"SendPost");
-		SendPost(pSession);
-		PRO_END(L"SendPost");
+	PRO_BEGIN(L"SendPost");
+	SendPost(pSession);
+	PRO_END(L"SendPost");
 
-		InterlockedIncrement((LONG *)&_lSendPacketCounter);
-	}
+	InterlockedIncrement((LONG *)&_lSendPacketCounter);
 
 	SessionSetUnlock(pSession);
 
@@ -309,6 +306,8 @@ int					CNetServer::AccpetThread_update()
 			if ((WSAENOTSOCK == iErrorCode) ||
 				(WSAEINTR == iErrorCode))
 				break;
+
+			CCrashDump::Crash();
 		}
 
 		InterlockedIncrement((LONG *)&_lAcceptCounter);
@@ -826,6 +825,14 @@ SESSION*			CNetServer::SessionSetLock(__int64 iSessionID)
 		return nullptr;
 	}
 
+	if (iSessionID != _Session[iSessionIndex]->_iSessionID)
+	{
+		if (0 == InterlockedDecrement64((LONG64 *)&_Session[iSessionIndex]->_IOBlock->_iIOCount))
+			ReleaseSession(_Session[iSessionIndex]);
+
+		return nullptr;
+	}
+
 	return _Session[iSessionIndex];
 }
 
@@ -903,6 +910,8 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 		))
 		return;
 
+	OnClientLeave(iSessionID);
+
 	closesocket(pSession->_SessionInfo._Socket);
 
 	pSession->_iSessionID = -1;
@@ -928,7 +937,6 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 
 	InterlockedExchange((LONG *)&pSession->_bSendFlag, false);
 	InterlockedExchange((LONG *)&pSession->_bSendFlagWorker, false);
-	OnClientLeave(iSessionID);
 
 	InsertBlankSessionIndex(GET_SESSIONINDEX(iSessionID));
 
