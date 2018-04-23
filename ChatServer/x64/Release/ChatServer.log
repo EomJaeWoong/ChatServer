@@ -1,4 +1,4 @@
-﻿빌드 시작: 2018-04-16 오전 11:17:16
+﻿빌드 시작: 2018-04-23 오전 10:24:58
      1>2 노드의 "C:\Users\USER\Documents\Visual Studio 2013\Projects\ChatServer\ChatServer\ChatServer.vcxproj" 프로젝트(Build 대상)입니다.
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /Zi /nologo /W3 /WX- /sdl /Od /Oi /GL /D WIN32 /D NDEBUG /D _CONSOLE /D _LIB /D _UNICODE /D UNICODE /Gm- /EHsc /MT /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"x64\Release\ChatServer.pch" /Fo"x64\Release\\" /Fd"x64\Release\vc120.pdb" /Gd /TP /errorReport:prompt NetServer.cpp
@@ -23,4 +23,4 @@
 
 빌드했습니다.
 
-경과 시간: 00:00:02.53
+경과 시간: 00:00:02.63

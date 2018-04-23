@@ -487,15 +487,15 @@ int					CNetServer::MonitorThread_update()
 
 	while (1)
 	{
-		_lAcceptTPS = _lAcceptCounter;
-		_lAcceptTotalTPS += _lAcceptCounter;
-		_lRecvPacketTPS = _lRecvPacketCounter;
-		_lSendPacketTPS = _lSendPacketCounter;
-		_lPacketPoolTPS = CNPacket::GetPacketCount();
+		InterlockedExchange(&_lAcceptTPS, _lAcceptCounter);
+		InterlockedAdd(&_lAcceptTotalTPS, _lAcceptCounter);
+		InterlockedExchange(&_lRecvPacketTPS, _lRecvPacketCounter);
+		InterlockedExchange(&_lSendPacketTPS, _lSendPacketCounter);
+		InterlockedExchange(&_lPacketPoolTPS, CNPacket::GetPacketCount());
 
-		_lAcceptCounter = 0;
-		_lRecvPacketCounter = 0;
-		_lSendPacketCounter = 0;
+		InterlockedExchange(&_lAcceptCounter, 0);
+		InterlockedExchange(&_lRecvPacketCounter, 0);
+		InterlockedExchange(&_lSendPacketCounter, 0);
 
 		Sleep(999);
 	}
