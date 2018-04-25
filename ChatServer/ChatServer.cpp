@@ -307,8 +307,9 @@ bool						CChatServer::PacketProc_ReqLogin(__int64 iSessionID, CNPacket *pPacket
 
 	////////////////////////////////////////////////////////////////////////////
 	// AccountNo °Ë»ç
-	////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////	
 	*pPacket >> iAccountNo;
+	/*
 	ClientIter iter;
 	for (iter = _Client.begin(); iter != _Client.end(); iter++)
 	{
@@ -319,6 +320,7 @@ bool						CChatServer::PacketProc_ReqLogin(__int64 iSessionID, CNPacket *pPacket
 				pClient = (_Client.find(iSessionID))->second;
 		}
 	}
+	*/
 
 	pClient->iAccountNo = iAccountNo;
 

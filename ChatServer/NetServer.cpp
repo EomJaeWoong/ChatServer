@@ -311,6 +311,7 @@ int					CNetServer::AccpetThread_update()
 		}
 
 		InterlockedIncrement((LONG *)&_lAcceptCounter);
+		InterlockedIncrement((LONG *)&_lAcceptTotalCounter);
 
 		///////////////////////////////////////////////////////////////////////////////////
 		// 技记 立加 沥焊 积己
@@ -487,15 +488,16 @@ int					CNetServer::MonitorThread_update()
 
 	while (1)
 	{
-		InterlockedExchange(&_lAcceptTPS, _lAcceptCounter);
-		InterlockedAdd(&_lAcceptTotalTPS, _lAcceptCounter);
-		InterlockedExchange(&_lRecvPacketTPS, _lRecvPacketCounter);
-		InterlockedExchange(&_lSendPacketTPS, _lSendPacketCounter);
-		InterlockedExchange(&_lPacketPoolTPS, CNPacket::GetPacketCount());
+		_lAcceptTPS = _lAcceptCounter;
+		InterlockedAdd(&_lAcceptTotalTPS, _lAcceptTotalCounter);
+		_lRecvPacketTPS = _lRecvPacketCounter;
+		_lSendPacketTPS = _lSendPacketCounter;
+		_lPacketPoolTPS = CNPacket::GetPacketCount();
 
-		InterlockedExchange(&_lAcceptCounter, 0);
-		InterlockedExchange(&_lRecvPacketCounter, 0);
-		InterlockedExchange(&_lSendPacketCounter, 0);
+		InterlockedExchange(&_lAcceptTotalCounter, 0);
+		_lAcceptCounter = 0;
+		_lRecvPacketCounter = 0;
+		_lSendPacketCounter = 0;
 
 		Sleep(999);
 	}
