@@ -603,18 +603,19 @@ bool						CChatServer::DeleteClient(__int64 iSessionID)
 	CLIENT *pClient = nullptr;
 
 	ClientIter iter = _Client.find(iSessionID);
-	pClient = iter->second;
 
 	if (iter != _Client.end())
 	{
 		pClient = iter->second;
-		_ClientMemoryPool.Free(pClient);
-		_Client.erase(iter);
 
 		if ((-1 != pClient->shSectorX) && (-1 != pClient->shSectorY))
 			_Sector[pClient->shSectorY][pClient->shSectorX].remove(pClient->iSessionID);
 
-		InterlockedDecrement(&_lPlayerCount);
+		_ClientMemoryPool.Free(pClient);
+		_Client.erase(iter);
+
+		if (0 != pClient->iAccountNo)
+			InterlockedDecrement(&_lPlayerCount);
 
 		return true;
 	}

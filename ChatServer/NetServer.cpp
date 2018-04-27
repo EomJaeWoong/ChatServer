@@ -912,8 +912,6 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 		))
 		return;
 
-	OnClientLeave(iSessionID);
-
 	closesocket(pSession->_SessionInfo._Socket);
 
 	pSession->_iSessionID = -1;
@@ -939,6 +937,8 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 
 	InterlockedExchange((LONG *)&pSession->_bSendFlag, false);
 	InterlockedExchange((LONG *)&pSession->_bSendFlagWorker, false);
+
+	OnClientLeave(iSessionID);
 
 	InsertBlankSessionIndex(GET_SESSIONINDEX(iSessionID));
 
