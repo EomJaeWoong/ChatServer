@@ -106,7 +106,7 @@ public :
 		st_END_NODE		stCloneTailNode;
 		st_NODE			*pNextTail;
 
-		__int64			iUniqueNumTail = InterlockedIncrement64((LONG64 *)&_iUniqueNumTail);
+		__int64			iUniqueNumTail;
 
 		//////////////////////////////////////////////////////////////////////
 		// 데이터 노드 생성
@@ -117,6 +117,8 @@ public :
 
 		while (1)
 		{
+			iUniqueNumTail = InterlockedIncrement64((LONG64 *)&_iUniqueNumTail);
+
 			//////////////////////////////////////////////////////////////////
 			// Tail 저장
 			//////////////////////////////////////////////////////////////////
@@ -168,7 +170,7 @@ public :
 					(LONG64 *)&stCloneTailNode
 					);
 
-				iUniqueNumTail = InterlockedIncrement64((LONG64 *)&_iUniqueNumTail);
+				//iUniqueNumTail = InterlockedIncrement64((LONG64 *)&_iUniqueNumTail);
 			}
 		}
 
