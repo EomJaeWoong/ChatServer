@@ -915,6 +915,7 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 		))
 		return;
 
+	
 	closesocket(pSession->_SessionInfo._Socket);
 
 	pSession->_iSessionID = -1;
@@ -924,7 +925,16 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 	memset(&pSession->_SessionInfo._wIP, 0, sizeof(pSession->_SessionInfo._wIP));
 
 	pSession->_RecvQ.ClearBuffer();
-	pSession->_SendQ.ClearBuffer();
+
+	///////////////////////////////////////////////////////////////////////////////////////
+	// Packet Send Queue(패킷도 다 비우고 큐를 비워야함
+	///////////////////////////////////////////////////////////////////////////////////////
+	while (!pSession->_SendQ.isEmpty())
+	{
+		CNPacket *pFreePacket;
+		pSession->_SendQ.Get(&pFreePacket);
+		pFreePacket->Free();
+	}
 
 	memset(&pSession->_RecvOverlapped, 0, sizeof(OVERLAPPED));
 	memset(&pSession->_SendOverlapped, 0, sizeof(OVERLAPPED));

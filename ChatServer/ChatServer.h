@@ -95,6 +95,7 @@ public :
 	bool						Start(WCHAR* wOpenIP, int iPort, int iWorkerThreadNum, bool bNagle, int iMaxConnect);
 	void						Stop();
 
+
 public :
 	virtual void				OnClientJoin(SESSIONINFO *pSessionInfo, __int64 iSessionID);
 	virtual void				OnClientLeave(__int64 iSessionID);
