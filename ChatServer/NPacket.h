@@ -226,13 +226,17 @@ public:
 	//////////////////////////////////////////////////////////////////////////
 	void			Clear(void)
 	{
+		m_chpDataFieldStart = m_chpBuffer + 5;
+		m_chpDataFieldEnd = m_chpDataFieldStart;
+
 		m_chpReadPos = m_chpDataFieldStart;
 		m_chpWritePos = m_chpDataFieldStart;
-		m_chpDataFieldEnd = m_chpDataFieldStart;
+
+		m_bEncode = false;
 
 		m_iDataSize = 0;
 
-		m_bEncode = false;
+		m_lRefCnt = 0;
 	}
 
 
@@ -376,12 +380,11 @@ public:
 	static CNPacket *Alloc()
 	{
 		CNPacket *pAllocPacket = m_PacketPool.Alloc();
-
-		if (NULL == pAllocPacket)
+		if (nullptr == pAllocPacket)
 			CCrashDump::Crash();
 
-		pAllocPacket->addRef();
 		pAllocPacket->Clear();
+		pAllocPacket->addRef();
 
 		return pAllocPacket;
 	}
@@ -397,14 +400,12 @@ public:
 	void			Free()
 	{
 		int result = InterlockedDecrement((LONG *)&m_lRefCnt);
+		list<CNPacket*>::iterator iter;
 
 		if (0 == result)
 		{
-			this->~CNPacket();
-
 			m_PacketPool.Free(this);
 		}
-
 		else if(0 > result)
 			CCrashDump::Crash();
 	}
@@ -421,6 +422,12 @@ public:
 		InterlockedIncrement((LONG *)&m_lRefCnt);
 	}
 
+	void			Save()
+	{
+		memset(buffer, 0, 1024);
+		strcpy_s(buffer, (size_t)m_iDataSize, (char *)m_chpReadPos);
+	}
+
 
 	//////////////////////////////////////////////////////////////////////////
 	// 패킷 암호화
@@ -434,7 +441,7 @@ public:
 
 		if (true == InterlockedCompareExchange((long *)&m_bEncode, true, false))
 			return false;
-		
+
 		//////////////////////////////////////////////////////////////////////
 		// Packet Code 넣기
 		//////////////////////////////////////////////////////////////////////
@@ -443,7 +450,7 @@ public:
 		//////////////////////////////////////////////////////////////////////
 		// Payload 길이 넣기
 		//////////////////////////////////////////////////////////////////////
-		eHeader.shPacketLen = m_iDataSize;
+		eHeader.shPacketLen = (WORD)(m_chpDataFieldEnd - m_chpDataFieldStart);
 
 		//////////////////////////////////////////////////////////////////////
 		// 랜덤키 생성
@@ -456,8 +463,8 @@ public:
 		// checkSum 생성
 		//////////////////////////////////////////////////////////////////////
 		DWORD		dwCheckSum = 0;
-		for (BYTE *pbyPayloadPos = m_chpReadPos; 
-			pbyPayloadPos < m_chpWritePos;
+		for (BYTE *pbyPayloadPos = m_chpDataFieldStart; 
+			pbyPayloadPos < m_chpDataFieldEnd;
 			pbyPayloadPos++)
 			dwCheckSum += (int)*pbyPayloadPos;
 
@@ -875,6 +882,7 @@ protected:
 	BYTE							m_byXORCode1;
 	BYTE							m_byXORCode2;
 
+	char							buffer[1024];
 };
 
 #endif

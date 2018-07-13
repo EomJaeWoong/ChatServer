@@ -72,6 +72,9 @@
     <ClInclude Include="TextParser.h">
       <Filter>소스 파일</Filter>
     </ClInclude>
+    <ClInclude Include="SystemLog.h">
+      <Filter>소스 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -102,6 +105,9 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="Profiler.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="SystemLog.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>

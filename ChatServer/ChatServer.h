@@ -19,8 +19,8 @@ public :
 		eMAX_ID			= 20,
 		eMAX_NICKNAME	= 20,
 
-		eSECTOR_MAX_Y	= 50,
-		eSECTOR_MAX_X	= 50
+		eSECTOR_MAX_Y	= 100,
+		eSECTOR_MAX_X	= 100
 	};
 
 	/*-----------------------------------------------------------------------------*/
@@ -52,6 +52,8 @@ public :
 	/*-----------------------------------------------------------------------------*/
 	typedef struct st_Client
 	{
+		BOOL			bLogin;
+
 		__int64			iAccountNo;
 
 		__int64			iSessionID;
@@ -134,12 +136,12 @@ private :
 	/////////////////////////////////////////////////////////////////////////////////
 	// 패킷 처리, 제작
 	/////////////////////////////////////////////////////////////////////////////////
-	bool						CompletePacket(__int64 iSessionID, CNPacket *pPacket);
+	bool						CompletePacket(__int64 iSessionID, CNPacket *pRecvPacket);
 
-	bool						PacketProc_ReqLogin(__int64 iSessionID, CNPacket *pPacket);
-	bool						PacketProc_ReqSectorMove(__int64 iSessionID, CNPacket *pPacket);
-	bool						PacketProc_ReqMessage(__int64 iSessionID, CNPacket *pPacket);
-	bool						PacketProc_ReqHeartbeat(__int64 iSessionID, CNPacket *pPacket);
+	bool						PacketProc_ReqLogin(__int64 iSessionID, CNPacket *pRecvPacket);
+	bool						PacketProc_ReqSectorMove(__int64 iSessionID, CNPacket *pRecvPacket);
+	bool						PacketProc_ReqMessage(__int64 iSessionID, CNPacket *pRecvPacket);
+	bool						PacketProc_ReqHeartbeat(__int64 iSessionID, CNPacket *pRecvPacket);
 
 	CNPacket*					MakePacket_ResLogin(__int64 iAccountNo, BYTE byStatus);
 	CNPacket*					MakePacket_ResSectorMove(__int64 iAccountNo, WORD wSectorX, WORD wSectorY);
@@ -167,7 +169,7 @@ private :
 	// UpdateSector			- 해당 클라이언트 섹터에 대해 업데이트(지우고 추가)
 	/////////////////////////////////////////////////////////////////////////////////
 	void						GetSectorAround(int iSectorX, int iSectorY, st_SECTOR_AROUND *pSectorAround);
-	void						UpdateSector(CLIENT *pClient, WORD wNewSectorX, WORD wNewSectorY);
+	bool						UpdateSector(CLIENT *pClient, WORD wNewSectorX, WORD wNewSectorY);
 
 public :
 	/////////////////////////////////////////////////////////////////////////////////

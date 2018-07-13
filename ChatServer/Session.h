@@ -59,7 +59,6 @@ typedef struct stSession
 	// Send에 대한 Flag
 	/////////////////////////////////////////////
 	BOOL						_bSendFlag;
-	BOOL						_bSendFlagWorker;
 
 	/////////////////////////////////////////////
 	// Send중인 Packet 보관

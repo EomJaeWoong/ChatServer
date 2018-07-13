@@ -10,7 +10,7 @@ private :
 		eMAX_THREAD = 50,
 
 		// 최대 세션 갯수
-		eMAX_SESSION = 15000,
+		eMAX_SESSION = 40000,
 
 		// 최대 WSABUF 갯수
 		eMAX_WSABUF = 200
@@ -45,7 +45,7 @@ public :
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// 연결 끊기
 	///////////////////////////////////////////////////////////////////////////////////////////
-	void						Disconnect(__int64 iSessionID);
+	bool						Disconnect(__int64 iSessionID);
 
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// 소켓 연결 끊기
@@ -81,7 +81,7 @@ protected :
 	virtual void				OnClientLeave(__int64 iSessionID) = 0;
 	virtual bool				OnConnectionRequest(SESSIONINFO *pSessionInfo) = 0;
 
-	virtual void				OnRecv(__int64 iSessionID, CNPacket* pPacket) = 0;
+	virtual void				OnRecv(__int64 iSessionID, CNPacket* pRecvPacket) = 0;
 	virtual void				OnSend(__int64 iSessionID, int iSendsize) = 0;
 
 	virtual void				OnWorkerThreadBegin() = 0;
@@ -113,7 +113,7 @@ private :
 	// Recv, Send 등록
 	///////////////////////////////////////////////////////////////////////////////////////////
 	void						RecvPost(SESSION *pSession, bool bAcceptRecv = false);
-	bool						SendPost(SESSION *pSession, bool bWorker = false);
+	bool						SendPost(SESSION *pSession);
 
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Recv, Send 처리
@@ -135,8 +135,8 @@ private :
 	//
 	// 릴리즈 과정을 하나의 작업으로 보고 카운트함
 	///////////////////////////////////////////////////////////////////////////////////////////
-	SESSION*					SessionSetLock(__int64 SessionID);
-	void						SessionSetUnlock(SESSION *pSession);
+	SESSION*					SessionGetLock(__int64 SessionID);
+	void						SessionGetUnlock(SESSION *pSession);
 
 	///////////////////////////////////////////////////////////////////////////////////////////
 	// Disconnection

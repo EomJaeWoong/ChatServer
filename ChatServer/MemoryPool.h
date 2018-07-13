@@ -88,45 +88,45 @@ public:
 	{
 		st_BLOCK_NODE	*pAllocNode = nullptr;
 		st_TOP_NODE		stCloneTopNode;
+		__int64			iUniqueNum = 0;
 
-		DATA			*pData;
-
-		long			lBlockCount = _lBlockCount;
-		InterlockedIncrement((long *)&_lAllocCount);
+		long			lBlockCount = 0;
+			
+		InterlockedExchange((LONG *)&lBlockCount, _lBlockCount);
+		long			lAllocCount = InterlockedIncrement((LONG *)&_lAllocCount);
 	
 		//////////////////////////////////////////////////////////////////////
 		// 할당 해야 할 경우
 		//////////////////////////////////////////////////////////////////////
-		if (lBlockCount < _lAllocCount)
+		if (lBlockCount < lAllocCount)
 		{
 			pAllocNode = (st_BLOCK_NODE *)malloc(sizeof(st_BLOCK_NODE) + sizeof(DATA));
-			InterlockedIncrement((long *)&_lBlockCount);
+			InterlockedIncrement((LONG *)&_lBlockCount);
+
+			if (bPlacementNew)
+				new ((DATA *)(pAllocNode + 1))DATA;
 		}
 
 		else
 		{
-			__int64 iUniqueNum = InterlockedIncrement64((LONG64 *)&_iUniqueNum);
+			iUniqueNum = InterlockedIncrement64((LONG64 *)&_iUniqueNum);
 
 			do
 			{
-				stCloneTopNode.iUniqueNum	= _pTop->iUniqueNum;
 				stCloneTopNode.pTopNode		= _pTop->pTopNode;
+				stCloneTopNode.iUniqueNum	= _pTop->iUniqueNum;
 			} while (!InterlockedCompareExchange128(
 				(LONG64 *)_pTop,
-				iUniqueNum,
+				(LONG64)iUniqueNum,
 				(LONG64)_pTop->pTopNode->stpNextBlock,
 				(LONG64 *)&stCloneTopNode
 				));
 
-			pAllocNode = stCloneTopNode.pTopNode;
+			pAllocNode = (st_BLOCK_NODE *)stCloneTopNode.pTopNode;
+			pAllocNode->stpNextBlock = nullptr;
 		}
 
-		pData = (DATA *)(pAllocNode + 1);
-
-		if (bPlacementNew)
-			new (pData)DATA;
-
-		return pData;
+		return (DATA *)(pAllocNode + 1);
 	}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -144,18 +144,18 @@ public:
 
 		do
 		{
-			stCloneTopNode.iUniqueNum	= _pTop->iUniqueNum;
 			stCloneTopNode.pTopNode		= _pTop->pTopNode;
+			stCloneTopNode.iUniqueNum = _pTop->iUniqueNum;
 
 			pReturnNode->stpNextBlock	= _pTop->pTopNode;
 		} while (!InterlockedCompareExchange128(
 			(LONG64 *)_pTop,
-			iUniqueNum,
+			(LONG64)iUniqueNum,
 			(LONG64)pReturnNode,
 			(LONG64 *)&stCloneTopNode
 			));
 
-		InterlockedDecrement((long *)&_lAllocCount);
+		InterlockedDecrement((LONG *)&_lAllocCount);
 
 		return true;
 	}
