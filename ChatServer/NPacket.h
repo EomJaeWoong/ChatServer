@@ -385,6 +385,7 @@ public:
 
 		pAllocPacket->Clear();
 		pAllocPacket->addRef();
+		m_Chaser.push_back(pAllocPacket);
 
 		return pAllocPacket;
 	}
@@ -404,6 +405,15 @@ public:
 
 		if (0 == result)
 		{
+			list<CNPacket *>::iterator iter;
+			for (iter = m_Chaser.begin(); iter != m_Chaser.end(); iter++)
+			{
+				if (*iter == this)
+				{
+					m_Chaser.erase(iter);
+					break;
+				}
+			}
 			m_PacketPool.Free(this);
 		}
 		else if(0 > result)
@@ -421,13 +431,6 @@ public:
 	{
 		InterlockedIncrement((LONG *)&m_lRefCnt);
 	}
-
-	void			Save()
-	{
-		memset(buffer, 0, 1024);
-		strcpy_s(buffer, (size_t)m_iDataSize, (char *)m_chpReadPos);
-	}
-
 
 	//////////////////////////////////////////////////////////////////////////
 	// 패킷 암호화
@@ -883,6 +886,8 @@ protected:
 	BYTE							m_byXORCode2;
 
 	char							buffer[1024];
+
+	static list<CNPacket*>					m_Chaser;
 };
 
 #endif

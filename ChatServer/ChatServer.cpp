@@ -273,8 +273,8 @@ bool						CChatServer::CompletePacket(__int64 iSessionID, CNPacket *pRecvPacket)
 		break;
 	}
 
-	pRecvPacket->Free();
-
+	//pRecvPacket->Free();
+	delete pRecvPacket;
 
 	return bResult;
 }
@@ -339,7 +339,6 @@ bool						CChatServer::PacketProc_ReqLogin(__int64 iSessionID, CNPacket *pRecvPa
 	// 패킷 만들어 보내기
 	////////////////////////////////////////////////////////////////////////////
 	pSendPacket = MakePacket_ResLogin(pClient->iAccountNo, byStatus);
-	pSendPacket->Save();
 	SendPacket_One(pClient, pSendPacket);
 
 	pSendPacket->Free();
@@ -386,7 +385,6 @@ bool						CChatServer::PacketProc_ReqSectorMove(__int64 iSessionID, CNPacket *pR
 	// 패킷 만들어 보내기
 	////////////////////////////////////////////////////////////////////////////
 	pSendPacket = MakePacket_ResSectorMove(pClient->iAccountNo, pClient->shSectorX, pClient->shSectorY);
-	pSendPacket->Save();
 	SendPacket_One(pClient, pSendPacket);
 
 	pSendPacket->Free();
@@ -428,7 +426,6 @@ bool						CChatServer::PacketProc_ReqMessage(__int64 iSessionID, CNPacket *pRecv
 	// 패킷 만들어 보내기
 	////////////////////////////////////////////////////////////////////////////
 	pSendPacket = MakePacket_ResMessage(pClient->iAccountNo, pClient->szID, pClient->szNickname, wMessageLen, szMessage);
-	pSendPacket->Save();
 	SendPacket_Around(pClient, pSendPacket, true);
 
 	pSendPacket->Free();

@@ -728,7 +728,8 @@ bool				CNetServer::CompleteRecv(SESSION *pSession, DWORD dwTransferred)
 	while (pSession->_RecvQ.GetUseSize() > 0)
 	{
 		PRO_BEGIN(L"Packet Alloc");
-		pRecvPacket = CNPacket::Alloc();
+		//pRecvPacket = CNPacket::Alloc();
+		pRecvPacket = new CNPacket();
 		PRO_END(L"Packet Alloc");
 
 		PRO_BEGIN(L"Recv BufferDeque");
@@ -768,7 +769,6 @@ bool				CNetServer::CompleteRecv(SESSION *pSession, DWORD dwTransferred)
 		// OnRecv È£Ãâ
 		//////////////////////////////////////////////////////////////////////////
 		PRO_BEGIN(L"OnRecv");
-		pRecvPacket->Save();
 		OnRecv(pSession->_iSessionID, pRecvPacket);
 		PRO_END(L"OnRecv");
 
