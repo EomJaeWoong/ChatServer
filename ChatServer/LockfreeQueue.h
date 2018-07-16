@@ -215,10 +215,14 @@ public :
 			//////////////////////////////////////////////////////////////////
 			// 비었는지 확인
 			//////////////////////////////////////////////////////////////////
-			if (isEmpty())
+			if (stCloneHeadNode.pEndNode == stCloneTailNode.pEndNode)
 			{
-				pOutData = nullptr;
-				return false;
+				if (nullptr == pNextHead)
+				{
+					InterlockedIncrement((long *)&_lUseSize);
+					pOutData = nullptr;
+					return false;
+				}
 			}
 
 			//////////////////////////////////////////////////////////////////
@@ -250,19 +254,16 @@ public :
 			//////////////////////////////////////////////////////////////////
 			else
 			{
-				if (nullptr != pNextHead)
+				*pOutData = pNextHead->Data;
+				if (InterlockedCompareExchange128(
+					(LONG64 *)_pHead,
+					iUniqueNumHead,
+					(LONG64)stCloneHeadNode.pEndNode->pNext,
+					(LONG64 *)&stCloneHeadNode
+					))
 				{
-					*pOutData = pNextHead->Data;
-					if (InterlockedCompareExchange128(
-						(LONG64 *)_pHead,
-						iUniqueNumHead,
-						(LONG64)stCloneHeadNode.pEndNode->pNext,
-						(LONG64 *)&stCloneHeadNode
-						))
-					{
-						_pQueuePool->Free(stCloneHeadNode.pEndNode);
-						break;
-					}
+					_pQueuePool->Free(stCloneHeadNode.pEndNode);
+					break;
 				}
 			}
 		}
@@ -278,7 +279,10 @@ public :
 		if (0 == _lUseSize)
 		{
 			if ((_pHead->pEndNode) == (_pTail->pEndNode))
-				return true;
+			{
+				if (nullptr == _pHead->pEndNode->pNext)
+					return true;
+			}
 		}
 
 		return false;

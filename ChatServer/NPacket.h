@@ -235,8 +235,6 @@ public:
 		m_bEncode = false;
 
 		m_iDataSize = 0;
-
-		m_lRefCnt = 0;
 	}
 
 
@@ -453,7 +451,7 @@ public:
 		//////////////////////////////////////////////////////////////////////
 		// Payload 길이 넣기
 		//////////////////////////////////////////////////////////////////////
-		eHeader.shPacketLen = (WORD)(m_chpDataFieldEnd - m_chpDataFieldStart);
+		eHeader.shPacketLen = (WORD)GetDataSize();
 
 		//////////////////////////////////////////////////////////////////////
 		// 랜덤키 생성
@@ -465,11 +463,11 @@ public:
 		//////////////////////////////////////////////////////////////////////
 		// checkSum 생성
 		//////////////////////////////////////////////////////////////////////
-		DWORD		dwCheckSum = 0;
+		LONG		dwCheckSum = 0;
 		for (BYTE *pbyPayloadPos = m_chpDataFieldStart; 
 			pbyPayloadPos < m_chpDataFieldEnd;
 			pbyPayloadPos++)
-			dwCheckSum += (int)*pbyPayloadPos;
+			dwCheckSum += (LONG)*pbyPayloadPos;
 
 		eHeader.byCheckSum = (BYTE)(dwCheckSum % 256);
 

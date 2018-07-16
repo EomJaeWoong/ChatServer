@@ -54,12 +54,12 @@ CNetServer::CNetServer()
 		_Session[iCnt]->_RecvQ.ClearBuffer();
 		_Session[iCnt]->_SendQ.ClearBuffer();
 
-		_Session[iCnt]->_bSendFlag = false;
+		_Session[iCnt]->_bSendFlag = FALSE;
 
 		_Session[iCnt]->_IOBlock = (IOBlock *)_aligned_malloc(sizeof(IOBlock), 16);
 
 		_Session[iCnt]->_IOBlock->_iIOCount = 0;
-		_Session[iCnt]->_IOBlock->_iReleaseFlag = false;
+		_Session[iCnt]->_IOBlock->_iReleaseFlag = FALSE;
 
 		memset(_Session[iCnt]->_pSentPacket, 0, sizeof(_Session[iCnt]->_pSentPacket));
 		_Session[iCnt]->_lSentPacketCnt = 0;
@@ -239,24 +239,21 @@ bool				CNetServer::SendPacket(__int64 iSessionID, CNPacket *pPacket)
 	if (nullptr == pSession)
 		return false;
 
-	if (iSessionID == pSession->_iSessionID)
-	{
-		pPacket->Encode();
+	pPacket->Encode();
 
-		PRO_BEGIN(L"Packet addref");
-		pPacket->addRef();
-		PRO_END(L"Packet addref");
+	PRO_BEGIN(L"Packet addref");
+	pPacket->addRef();
+	PRO_END(L"Packet addref");
 
-		PRO_BEGIN(L"PacketQueue Put");
-		pSession->_SendQ.Put(pPacket);
-		PRO_END(L"PacketQueue Put");
+	PRO_BEGIN(L"PacketQueue Put");
+	pSession->_SendQ.Put(pPacket);
+	PRO_END(L"PacketQueue Put");
 
-		PRO_BEGIN(L"SendPost");
-		SendPost(pSession);
-		PRO_END(L"SendPost");
+	PRO_BEGIN(L"SendPost");
+	SendPost(pSession);
+	PRO_END(L"SendPost");
 
-		InterlockedIncrement((LONG *)&_lSendPacketCounter);
-	}
+	InterlockedIncrement((LONG *)&_lSendPacketCounter);
 
 	SessionGetUnlock(pSession);
 
@@ -273,8 +270,7 @@ bool				CNetServer::Disconnect(__int64 iSessionID)
 	if (nullptr == pSession)
 		return false;
 
-	if (iSessionID == pSession->_iSessionID)
-		DisconnectSession(pSession);
+	DisconnectSession(pSession);
 
 	SessionGetUnlock(pSession);
 
@@ -390,7 +386,7 @@ int					CNetServer::AccpetThread_update()
 			PostQueuedCompletionStatus(_hIOCP, 0, 0, 0);
 
 		InterlockedIncrement64((LONG64 *)&_Session[iBlankIndex]->_IOBlock->_iIOCount);
-		InterlockedExchange((LONG *)&_Session[iBlankIndex]->_IOBlock->_iReleaseFlag, FALSE);
+		InterlockedExchange64((LONG64 *)&_Session[iBlankIndex]->_IOBlock->_iReleaseFlag, FALSE);
 
 		/////////////////////////////////////////////////////////////////////
 		// OnClientJoin
@@ -571,9 +567,11 @@ void				CNetServer::RecvPost(SESSION *pSession, bool bAcceptRecv)
 			// WSAENOBUFS(10055)
 			// 시스템에 버퍼 공간이 부족하거나 큐가 가득 차서 소켓 작업을 수행할 수 없음
 			///////////////////////////////////////////////////////////////////////////////
-			// 시스템 로그 남기기
 			if (WSAENOBUFS == iErrorCode)
+			{
+				LOG(L"NetServer", LOG::LEVEL_ERROR, L"Recv WSAENOBUFS [SessionID : %p]", pSession->_iSessionID);
 				CCrashDump::Crash();
+			}
 
 			///////////////////////////////////////////////////////////////////////////////
 			// WSAECONNABORTED(10053) : 타임아웃이나 다른 에러 상황으로 인해 연결이 중지되었음
@@ -630,6 +628,8 @@ bool				CNetServer::SendPost(SESSION *pSession)
 		if (eMAX_WSABUF <= iSendQUseSize)
 			iSendQUseSize = eMAX_WSABUF;
 		
+		if (nullptr != pSession->_pSentPacket[0])
+			CCrashDump::Crash();
 
 		///////////////////////////////////////////////////////////////////////////////////
 		// WSABUF에 패킷 넣기
@@ -671,9 +671,6 @@ bool				CNetServer::SendPost(SESSION *pSession)
 			// 이 외에는 에러로 봄
 			///////////////////////////////////////////////////////////////////////////////////
 			if (iErrorCode != WSA_IO_PENDING)
-				break;
-
-			else if (iErrorCode != WSA_IO_PENDING)
 			{
 				///////////////////////////////////////////////////////////////////////////////
 				// WSAENOBUFS(10055)
@@ -681,8 +678,12 @@ bool				CNetServer::SendPost(SESSION *pSession)
 				///////////////////////////////////////////////////////////////////////////////
 				// 시스템 로그 남기기
 				if (WSAENOBUFS == iErrorCode)
+				{
+					LOG(L"NetServer", LOG::LEVEL_ERROR, L"Send WSAENOBUFS [SessionID : %p]", 
+						pSession->_iSessionID);
 					CCrashDump::Crash();
-				
+				}
+
 				///////////////////////////////////////////////////////////////////////////////
 				// WSAECONNABORTED(10053) : 타임아웃이나 다른 에러 상황으로 인해 연결이 중지되었음
 				// WSAECONNRESET(10054) : 클라이언트 쪽에서 강제로 끊어진 경우
@@ -694,10 +695,8 @@ bool				CNetServer::SendPost(SESSION *pSession)
 					(WSAESHUTDOWN != iErrorCode))
 					CCrashDump::Crash();
 				
-				for (iCount = 0; iCount < pSession->_lSentPacketCnt; iCount++)
-					((CNPacket *)pSession->_pSentPacket[iCount])->Free();
-
-				pSession->_lSentPacketCnt -= iCount;
+				LOG(L"NetServer", LOG::LEVEL_DEBUG, L"SendPost [SessionID : %p][ErrorCode : %d][iCount : %d][SendQ : %d][SentCount : %d]",
+					pSession->_iSessionID, iErrorCode, iCount, pSession->_SendQ.GetUseSize(), pSession->_lSentPacketCnt);
 
 				if (0 == InterlockedDecrement64((LONG64 *)&pSession->_IOBlock->_iIOCount))
 					ReleaseSession(pSession);
@@ -727,11 +726,6 @@ bool				CNetServer::CompleteRecv(SESSION *pSession, DWORD dwTransferred)
 
 	while (pSession->_RecvQ.GetUseSize() > 0)
 	{
-		PRO_BEGIN(L"Packet Alloc");
-		//pRecvPacket = CNPacket::Alloc();
-		pRecvPacket = new CNPacket();
-		PRO_END(L"Packet Alloc");
-
 		PRO_BEGIN(L"Recv BufferDeque");
 		//////////////////////////////////////////////////////////////////////////
 		// RecvQ에 헤더 길이만큼 있는지 검사 후 있으면 Peek
@@ -745,13 +739,17 @@ bool				CNetServer::CompleteRecv(SESSION *pSession, DWORD dwTransferred)
 		//////////////////////////////////////////////////////////////////////////
 		if (pSession->_RecvQ.GetUseSize() < CNPacket::eBUFFER_HEADER_SIZE + header.shPacketLen)
 			break;;
-		pRecvPacket->SetHeader((char *)&header);
 		pSession->_RecvQ.RemoveData(CNPacket::eBUFFER_HEADER_SIZE);
 		
+		PRO_BEGIN(L"Packet Alloc");
+		pRecvPacket = CNPacket::Alloc();
+		PRO_END(L"Packet Alloc");
+
 		//////////////////////////////////////////////////////////////////////////
 		// Payload를 뽑은 후 패킷 클래스에 넣음
 		//////////////////////////////////////////////////////////////////////////
 		pSession->_RecvQ.Get((char *)pRecvPacket->GetBufferPtr(), header.shPacketLen);
+		pRecvPacket->SetHeader((char *)&header);
 		pRecvPacket->MoveWritePos(header.shPacketLen);
 		PRO_END(L"Recv BufferDeque");
 
@@ -785,7 +783,7 @@ bool				CNetServer::CompleteRecv(SESSION *pSession, DWORD dwTransferred)
 bool				CNetServer::CompleteSend(SESSION *pSession, DWORD dwTransferred)
 {
 	CNPacket *pPacket;
-	int iSentCnt;
+	int iSentCnt = 0;
 
 	//////////////////////////////////////////////////////////////////////////////
 	// 보내기 완료된 데이터 제거
@@ -798,6 +796,7 @@ bool				CNetServer::CompleteSend(SESSION *pSession, DWORD dwTransferred)
 			break;
 
 		pPacket->Free();
+		pSession->_pSentPacket[iSentCnt] = nullptr;
 	}
 
 	pSession->_lSentPacketCnt -= iSentCnt;
@@ -809,7 +808,7 @@ bool				CNetServer::CompleteSend(SESSION *pSession, DWORD dwTransferred)
 	//////////////////////////////////////////////////////////////////////////////
 	// 다 보냈다고 Flag 변환
 	//////////////////////////////////////////////////////////////////////////////
-	InterlockedExchange((long *)&pSession->_bSendFlag, false);
+	InterlockedExchange((LONG *)&pSession->_bSendFlag, FALSE);
 
 	PRO_BEGIN(L"SendPost - WorkerTh");
 	//////////////////////////////////////////////////////////////////////////////
@@ -835,6 +834,22 @@ SESSION*			CNetServer::SessionGetLock(__int64 iSessionID)
 	// 릴리즈 되지 않게 확인
 	///////////////////////////////////////////////////////////////////////////////////////
 	if (1 == InterlockedIncrement64((LONG64 *)&_Session[iSessionIndex]->_IOBlock->_iIOCount))
+	{
+		if (0 == InterlockedDecrement64((LONG64 *)&_Session[iSessionIndex]->_IOBlock->_iIOCount))
+			ReleaseSession(_Session[iSessionIndex]);
+
+		return nullptr;
+	}
+
+	if (iSessionID != _Session[iSessionIndex]->_iSessionID)
+	{
+		if (0 == InterlockedDecrement64((LONG64 *)&_Session[iSessionIndex]->_IOBlock->_iIOCount))
+			ReleaseSession(_Session[iSessionIndex]);
+
+		return nullptr;
+	}
+
+	if (TRUE == InterlockedCompareExchange((LONG *)&_Session[iSessionIndex]->_IOBlock->_iReleaseFlag, TRUE, TRUE))
 	{
 		if (0 == InterlockedDecrement64((LONG64 *)&_Session[iSessionIndex]->_IOBlock->_iIOCount))
 			ReleaseSession(_Session[iSessionIndex]);
@@ -903,7 +918,7 @@ void				CNetServer::CloseSocket(SOCKET socket)
 void				CNetServer::ReleaseSession(SESSION *pSession)
 {
 	IOBlock stCompareBlock;
-	__int64 iSessionID = -1;
+	__int64 iSessionID = pSession->_iSessionID;;
 
 	stCompareBlock._iIOCount = 0;
 	stCompareBlock._iReleaseFlag = 0;
@@ -918,10 +933,10 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 		(LONG64 *)&stCompareBlock
 		))
 		return;
-	
+
 	closesocket(pSession->_SessionInfo._Socket);
 
-	iSessionID = pSession->_iSessionID;
+	
 	pSession->_iSessionID = -1;
 	pSession->_SessionInfo._Socket = INVALID_SOCKET;
 
@@ -933,22 +948,17 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 	///////////////////////////////////////////////////////////////////////////////////////
 	// Packet Send Queue(패킷도 다 비우고 큐를 비워야함
 	///////////////////////////////////////////////////////////////////////////////////////
-	if (!pSession->_SendQ.isEmpty())
-		CCrashDump::Crash();
-
-	/*
+	CNPacket *pPacket;
 	while (!pSession->_SendQ.isEmpty())
 	{
-		CNPacket *pFreePacket;
-		pSession->_SendQ.Get(&pFreePacket);
-		pFreePacket->Free();
+		pSession->_SendQ.Get(&pPacket);
+		pPacket->Free();
 	}
-	*/
+		
 	
 	memset(&pSession->_RecvOverlapped, 0, sizeof(OVERLAPPED));
 	memset(&pSession->_SendOverlapped, 0, sizeof(OVERLAPPED));
 
-	/*
 	int iSentCnt = 0;
 	for (; iSentCnt < pSession->_lSentPacketCnt; iSentCnt++)
 	{
@@ -960,13 +970,8 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 	}
 	
 	pSession->_lSentPacketCnt -= iSentCnt;
-	*/
-	if (0 != pSession->_lSentPacketCnt)
-		CCrashDump::Crash();
 
-	//InterlockedExchange((LONG *)&pSession->_bSendFlag, false);
-	if (pSession->_bSendFlag)
-		CCrashDump::Crash();
+	InterlockedExchange((LONG *)&pSession->_bSendFlag, FALSE);
 
 	OnClientLeave(iSessionID);
 

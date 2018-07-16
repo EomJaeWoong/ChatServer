@@ -127,7 +127,7 @@ private :
 	/////////////////////////////////////////////////////////////////////////////////
 	// 메시지 처리, 제작
 	/////////////////////////////////////////////////////////////////////////////////
-	bool						CompleteMessage(MESSAGE *pMessage);
+	bool						CompleteMessage();
 
 	MESSAGE*					MakeMessage_NewConnection(__int64 iSessionID);
 	MESSAGE*					MakeMessage_Disconnection(__int64 iSessionID);

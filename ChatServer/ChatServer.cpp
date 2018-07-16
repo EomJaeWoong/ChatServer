@@ -122,7 +122,6 @@ void						CChatServer::OnError(int iErrorCode, WCHAR *wErrorMsg)
 int							CChatServer::UpdateThread_update()
 {
 	int			iResult;
-	MESSAGE		*pMessage = nullptr;
 
 	while (!_bShutdown)
 	{
@@ -132,15 +131,12 @@ int							CChatServer::UpdateThread_update()
 
 		while (!_MessageQueue.isEmpty())
 		{
-			if (!_MessageQueue.Get(&pMessage))
-				break;
-		
-			if (!CompleteMessage(pMessage))
+			if (!CompleteMessage())
 				CCrashDump::Crash();
 
 			InterlockedIncrement(&_lUpdateCounter);
 
-			_MessageMemoryPool.Free(pMessage);
+			
 		}
 	}
 
@@ -160,8 +156,14 @@ unsigned __stdcall			CChatServer::UpdateThread(LPVOID updateParam)
 /////////////////////////////////////////////////////////////////////////////////
 // 메시지 처리
 /////////////////////////////////////////////////////////////////////////////////
-bool						CChatServer::CompleteMessage(MESSAGE *pMessage)
+bool						CChatServer::CompleteMessage()
 {
+	bool		bResult = true;
+	MESSAGE		*pMessage = nullptr;
+
+	if (!_MessageQueue.Get(&pMessage))
+		return false;
+
 	/////////////////////////////////////////////////////////////////////////////
 	// e_MESSAGE_NEW_CONNECTION	- 신규 접속
 	// e_MESSAGE_DISCONNECTION	- 접속 해제
@@ -170,24 +172,27 @@ bool						CChatServer::CompleteMessage(MESSAGE *pMessage)
 	switch (pMessage->wType)
 	{
 	case e_MESSAGE_NEW_CONNECTION:
-		return CreateClient(pMessage->iSessionID);
+		bResult = CreateClient(pMessage->iSessionID);
 		break;
 
 	case e_MESSAGE_DISCONNECTION:
-		return DeleteClient(pMessage->iSessionID);
+		bResult = DeleteClient(pMessage->iSessionID);
 		break;
 
 	case e_MESSAGE_PACKET:
-		return CompletePacket(pMessage->iSessionID, pMessage->pPacket);
+		bResult = CompletePacket(pMessage->iSessionID, pMessage->pPacket);
 		break;
 
 	default:
 		Disconnect(pMessage->iSessionID);
+		bResult = false;
 		break;
 
 	}
 
-	return false;
+	_MessageMemoryPool.Free(pMessage);
+
+	return bResult;
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -270,11 +275,11 @@ bool						CChatServer::CompletePacket(__int64 iSessionID, CNPacket *pRecvPacket)
 
 	default:
 		Disconnect(iSessionID);
+		bResult = false;
 		break;
 	}
 
-	//pRecvPacket->Free();
-	delete pRecvPacket;
+	pRecvPacket->Free();
 
 	return bResult;
 }
@@ -417,10 +422,11 @@ bool						CChatServer::PacketProc_ReqMessage(__int64 iSessionID, CNPacket *pRecv
 	////////////////////////////////////////////////////////////////////////////
 	// 메시지 길이 뽑고 메시지 뽑기
 	////////////////////////////////////////////////////////////////////////////
-	*pRecvPacket >> wMessageLen;
+	*pRecvPacket >> (WORD)wMessageLen;
 	
 	memset(szMessage, 0, 1024);
-	pRecvPacket->GetData((unsigned char *)szMessage, wMessageLen);
+	if(wMessageLen != pRecvPacket->GetData((unsigned char *)szMessage, wMessageLen))
+		CCrashDump::Crash();
 
 	////////////////////////////////////////////////////////////////////////////
 	// 패킷 만들어 보내기
@@ -524,7 +530,8 @@ void						CChatServer::SendPacket_Around(CLIENT *pClient, CNPacket *pPacket, boo
 				continue;
 
 			pSendClient = SearchClient(*iter);
-			SendPacket_One(pSendClient, pPacket);
+			if (!pSendClient->bDisconnect)
+				SendPacket_One(pSendClient, pPacket);
 		}
 	}
 }
