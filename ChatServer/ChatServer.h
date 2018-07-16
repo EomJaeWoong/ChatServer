@@ -187,6 +187,7 @@ public :
 
 	long						_lUpdateTPS;
 
+	long						_lClientCount;
 
 
 private :

@@ -169,8 +169,6 @@ public :
 					(LONG64)stCloneTailNode.pEndNode->pNext,
 					(LONG64 *)&stCloneTailNode
 					);
-
-				//iUniqueNumTail = InterlockedIncrement64((LONG64 *)&_iUniqueNumTail);
 			}
 		}
 
@@ -228,7 +226,7 @@ public :
 			//////////////////////////////////////////////////////////////////
 			// tail뒤에 Node가 있으면 밀어주기
 			//////////////////////////////////////////////////////////////////
-			else if (nullptr != (stCloneTailNode.pEndNode->pNext))
+			if (nullptr != (stCloneTailNode.pEndNode->pNext))
 			{
 				__int64 iUniqueNumTail = InterlockedIncrement64((LONG64 *)&_iUniqueNumTail);
 				InterlockedCompareExchange128(

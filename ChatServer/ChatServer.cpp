@@ -704,6 +704,7 @@ int							CChatServer::MonitorThread_Chat_Update()
 
 		_lUpdateCounter = 0;
 	
+		_lClientCount = _Client.size();
 		/*
 		for (ClientIter iter = _Client.begin(); iter != _Client.end(); iter++)
 		{

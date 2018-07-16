@@ -383,7 +383,6 @@ public:
 
 		pAllocPacket->Clear();
 		pAllocPacket->addRef();
-		m_Chaser.push_back(pAllocPacket);
 
 		return pAllocPacket;
 	}
@@ -401,19 +400,9 @@ public:
 		int result = InterlockedDecrement((LONG *)&m_lRefCnt);
 		list<CNPacket*>::iterator iter;
 
-		if (0 == result)
-		{
-			list<CNPacket *>::iterator iter;
-			for (iter = m_Chaser.begin(); iter != m_Chaser.end(); iter++)
-			{
-				if (*iter == this)
-				{
-					m_Chaser.erase(iter);
-					break;
-				}
-			}
+		if (0 == result)	
 			m_PacketPool.Free(this);
-		}
+	
 		else if(0 > result)
 			CCrashDump::Crash();
 	}
@@ -882,10 +871,6 @@ protected:
 	//------------------------------------------------------------
 	BYTE							m_byXORCode1;
 	BYTE							m_byXORCode2;
-
-	char							buffer[1024];
-
-	static list<CNPacket*>					m_Chaser;
 };
 
 #endif

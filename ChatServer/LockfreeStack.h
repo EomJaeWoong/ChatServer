@@ -77,6 +77,7 @@ public :
 			return false;
 
 		pNode->Data = Data;
+		pNode->pNext = nullptr;
 
 		__int64		iUniqueNum  = InterlockedIncrement64((LONG64 *)&_iUniqueNum);
 
