@@ -66,7 +66,7 @@ typedef struct stSession
 	char *						_pSentPacket[300];
 	long						_lSentPacketCnt;
 
-	long						_Debug;
+	LPVOID						_Debug;
 } SESSION;
 
 #endif

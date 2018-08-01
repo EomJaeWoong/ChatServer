@@ -127,7 +127,7 @@ private :
 	/////////////////////////////////////////////////////////////////////////////////
 	// 메시지 처리, 제작
 	/////////////////////////////////////////////////////////////////////////////////
-	bool						CompleteMessage();
+	bool						CompleteMessage(MESSAGE *pMessage);
 
 	MESSAGE*					MakeMessage_NewConnection(__int64 iSessionID);
 	MESSAGE*					MakeMessage_Disconnection(__int64 iSessionID);
@@ -144,7 +144,7 @@ private :
 	bool						PacketProc_ReqHeartbeat(__int64 iSessionID, CNPacket *pRecvPacket);
 
 	CNPacket*					MakePacket_ResLogin(__int64 iAccountNo, BYTE byStatus);
-	CNPacket*					MakePacket_ResSectorMove(__int64 iAccountNo, WORD wSectorX, WORD wSectorY);
+	CNPacket*					MakePacket_ResSectorMove(__int64 iAccountNo, short wSectorX, short wSectorY);
 	CNPacket*					MakePacket_ResMessage(__int64 iAccountNo, WCHAR *szID, WCHAR *szNickname, WORD wMessageLen, WCHAR *pMessage);
 
 
@@ -168,8 +168,8 @@ private :
 	// GetSectorAround		- 주변 섹터 얻기
 	// UpdateSector			- 해당 클라이언트 섹터에 대해 업데이트(지우고 추가)
 	/////////////////////////////////////////////////////////////////////////////////
-	void						GetSectorAround(int iSectorX, int iSectorY, st_SECTOR_AROUND *pSectorAround);
-	bool						UpdateSector(CLIENT *pClient, WORD wNewSectorX, WORD wNewSectorY);
+	void						GetSectorAround(short shSectorX, short shSectorY, st_SECTOR_AROUND *pSectorAround);
+	bool						UpdateSector(CLIENT *pClient, short shNewSectorX, short shNewSectorY);
 
 public :
 	/////////////////////////////////////////////////////////////////////////////////

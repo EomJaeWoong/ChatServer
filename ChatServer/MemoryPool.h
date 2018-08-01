@@ -92,7 +92,8 @@ public:
 
 		long			lBlockCount = 0;
 			
-		InterlockedExchange((LONG *)&lBlockCount, _lBlockCount);
+		//InterlockedExchange((LONG *)&lBlockCount, _lBlockCount);
+		lBlockCount = _lBlockCount;
 		long			lAllocCount = InterlockedIncrement((LONG *)&_lAllocCount);
 	
 		//////////////////////////////////////////////////////////////////////

@@ -18,6 +18,8 @@ CChatServer::CChatServer() : CNetServer()
 		(unsigned int *)&dwThreadID
 		);
 
+	SYSLOG_DIRECTORY(L"ChatServerLog");
+	SYSLOG_LEVEL(LOG::LEVEL_DEBUG);
 }
 
 
@@ -44,6 +46,13 @@ bool						CChatServer::Start(WCHAR* wOpenIP, int iPort, int iWorkerThreadNum, bo
 		0,
 		(unsigned int *)&dwThreadID
 		);
+
+	LOG(L"ChatServer", LOG::LEVEL_SYSTEM, L"ChatServer Start");
+	LOG(L"ChatServer", LOG::LEVEL_SYSTEM, L"Open IP : %s", wOpenIP);
+	LOG(L"ChatServer", LOG::LEVEL_SYSTEM, L"Port : %d", iPort);
+	LOG(L"ChatServer", LOG::LEVEL_SYSTEM, L"WorkerThread Count : %d", iWorkerThreadNum);
+	LOG(L"ChatServer", LOG::LEVEL_SYSTEM, L"Nagle : %s", bNagle ? L"TRUE" : L"FALSE");
+	LOG(L"ChatServer", LOG::LEVEL_SYSTEM, L"Max Connection : %d", iMaxConnect);
 
 	return true;
 }
@@ -121,6 +130,7 @@ void						CChatServer::OnError(int iErrorCode, WCHAR *wErrorMsg)
 /*-----------------------------------------------------------------------------*/
 int							CChatServer::UpdateThread_update()
 {
+	MESSAGE		*pMessage = nullptr;
 	int			iResult;
 
 	while (!_bShutdown)
@@ -131,12 +141,19 @@ int							CChatServer::UpdateThread_update()
 
 		while (!_MessageQueue.isEmpty())
 		{
-			if (!CompleteMessage())
+			if (!_MessageQueue.Get(&pMessage))
+				return false;
+
+			if (!CompleteMessage(pMessage))
+			{
+				LOG(L"ChatServer_Error",
+					LOG::LEVEL_ERROR,
+					L"Message Process Error : [Message type : %d][Session ID : %p]",
+					pMessage->wType, pMessage->iSessionID);
 				CCrashDump::Crash();
+			}
 
 			InterlockedIncrement(&_lUpdateCounter);
-
-			
 		}
 	}
 
@@ -156,14 +173,10 @@ unsigned __stdcall			CChatServer::UpdateThread(LPVOID updateParam)
 /////////////////////////////////////////////////////////////////////////////////
 // 메시지 처리
 /////////////////////////////////////////////////////////////////////////////////
-bool						CChatServer::CompleteMessage()
+bool						CChatServer::CompleteMessage(MESSAGE *pMessage)
 {
 	bool		bResult = true;
-	MESSAGE		*pMessage = nullptr;
-
-	if (!_MessageQueue.Get(&pMessage))
-		return false;
-
+	
 	/////////////////////////////////////////////////////////////////////////////
 	// e_MESSAGE_NEW_CONNECTION	- 신규 접속
 	// e_MESSAGE_DISCONNECTION	- 접속 해제
@@ -186,6 +199,12 @@ bool						CChatServer::CompleteMessage()
 	default:
 		Disconnect(pMessage->iSessionID);
 		bResult = false;
+
+		LOG(L"ChatServer_Error", 
+			LOG::LEVEL_ERROR,
+			L"CompleteMessage - Message Type Error [Type : %d]",
+			pMessage->wType);
+
 		break;
 
 	}
@@ -276,6 +295,14 @@ bool						CChatServer::CompletePacket(__int64 iSessionID, CNPacket *pRecvPacket)
 	default:
 		Disconnect(iSessionID);
 		bResult = false;
+
+		LOG(L"ChatServer_Error", 
+			LOG::LEVEL_ERROR,
+			L"CompletePacket - Packet Type Error");
+		LOG_HEX(L"ChatServer_Error",
+			LOG::LEVEL_ERROR,
+			pRecvPacket->GetBufferPtr(),
+			pRecvPacket->GetDataSize());
 		break;
 	}
 
@@ -291,7 +318,7 @@ bool						CChatServer::PacketProc_ReqLogin(__int64 iSessionID, CNPacket *pRecvPa
 {
 	CNPacket	*pSendPacket = nullptr;
 	CLIENT		*pClient = SearchClient(iSessionID);
-	
+
 	__int64		iAccountNo;
 	BYTE		byStatus = 1;
 
@@ -301,44 +328,55 @@ bool						CChatServer::PacketProc_ReqLogin(__int64 iSessionID, CNPacket *pRecvPa
 	*pRecvPacket >> iAccountNo;
 
 	////////////////////////////////////////////////////////////////////////////
-	// 원래 로그인 되어있던 Client 끊기
-	////////////////////////////////////////////////////////////////////////////
-	ClientIter iter;
-	for (iter = _Client.begin(); iter != _Client.end(); iter++)
-	{
-		if ((iter->second->iAccountNo == iAccountNo) && (iter->first != iSessionID))
-		{
-			Disconnect(iter->first);
-			iter->second->bDisconnect = TRUE;
-			break;
-		}
-	}
-	
-	if (pClient->bLogin)
-		CCrashDump::Crash();
-
-	////////////////////////////////////////////////////////////////////////////
 	// 클라이언트 찾기
 	////////////////////////////////////////////////////////////////////////////
 	if (nullptr == pClient)
-		byStatus = 0;	
+	{
+		LOG(L"ChatServer_Debug",
+			LOG::LEVEL_DEBUG,
+			L"PacketProc_ReqLogin - Cannot find Client [Session ID : %p][Account No : %d]");
+		byStatus = 0;
+	}
 
-	pClient->dwRecvPacketTime = GetTickCount64();
+	else
+	{
+		////////////////////////////////////////////////////////////////////////////
+		// 원래 로그인 되어있던 Client 끊기
+		////////////////////////////////////////////////////////////////////////////
+		ClientIter iter;
+		for (iter = _Client.begin(); iter != _Client.end(); iter++)
+		{
+			if ((iter->second->iAccountNo == iAccountNo) && (iter->first != iSessionID))
+			{
+				Disconnect(iter->first);
+				iter->second->bDisconnect = TRUE;
+				
+				break;
+			}
+		}
 
-	////////////////////////////////////////////////////////////////////////////
-	// 새로 생성 되었던 Client 찾아서 Account 넣어줘야 됨
-	////////////////////////////////////////////////////////////////////////////
-	pClient->iAccountNo = iAccountNo;
+		pClient->dwRecvPacketTime = GetTickCount64();
 
-	////////////////////////////////////////////////////////////////////////////
-	// ID, Nickname 확인
-	////////////////////////////////////////////////////////////////////////////
-	pRecvPacket->GetData((unsigned char *)pClient->szID, eMAX_ID * sizeof(WCHAR));
-	pRecvPacket->GetData((unsigned char *)pClient->szNickname, eMAX_NICKNAME * sizeof(WCHAR));
-	
+		////////////////////////////////////////////////////////////////////////////
+		// 새로 생성 되었던 Client 찾아서 Account 넣어줘야 됨
+		////////////////////////////////////////////////////////////////////////////
+		pClient->iAccountNo = iAccountNo;
 
-	// 세션키 확인해야 하는데 지금은 그냥 믿고 감
-	pRecvPacket->GetData((unsigned char *)pClient->chSessionKey, 64);
+		////////////////////////////////////////////////////////////////////////////
+		// ID, Nickname 확인
+		////////////////////////////////////////////////////////////////////////////
+		pRecvPacket->GetData((unsigned char *)pClient->szID, eMAX_ID * sizeof(WCHAR));
+		pRecvPacket->GetData((unsigned char *)pClient->szNickname, eMAX_NICKNAME * sizeof(WCHAR));
+
+
+		// 세션키 확인해야 하는데 지금은 그냥 믿고 감
+		pRecvPacket->GetData((unsigned char *)pClient->chSessionKey, 64);
+
+		pClient->bLogin = TRUE;
+
+		InterlockedIncrement(&_lPlayerCount);
+
+	}
 
 	////////////////////////////////////////////////////////////////////////////
 	// 패킷 만들어 보내기
@@ -347,10 +385,6 @@ bool						CChatServer::PacketProc_ReqLogin(__int64 iSessionID, CNPacket *pRecvPa
 	SendPacket_One(pClient, pSendPacket);
 
 	pSendPacket->Free();
-
-	pClient->bLogin = TRUE;
-
-	InterlockedIncrement(&_lPlayerCount);
 
 	return true;
 }
@@ -361,10 +395,17 @@ bool						CChatServer::PacketProc_ReqSectorMove(__int64 iSessionID, CNPacket *pR
 	CLIENT		*pClient = SearchClient(iSessionID);
 
 	__int64		iAccountNo;
-	WORD		wSectorX = -1, wSectorY = -1;
+	short		shSectorX = -1, shSectorY = -1;
 
 	if (!pClient->bLogin)
-		return false;
+	{
+		LOG(L"ChatServer_Error",
+			LOG::LEVEL_ERROR,
+			L"PacketProc_ReqSectorMove - Not Login [Client Account No : %d][Session ID : %p]",
+			pClient->iAccountNo, iSessionID);
+		CCrashDump::Crash();
+		//return false;
+	}
 
 	pClient->dwRecvPacketTime = GetTickCount64();
 
@@ -373,18 +414,35 @@ bool						CChatServer::PacketProc_ReqSectorMove(__int64 iSessionID, CNPacket *pR
 	////////////////////////////////////////////////////////////////////////////
 	*pRecvPacket >> iAccountNo;
 	if (iAccountNo != pClient->iAccountNo)
-		return false;
+	{
+		LOG(L"ChatServer_Error",
+			LOG::LEVEL_ERROR,
+			L"PacketProc_ReqSectorMove - Account not equil [Recv Account No : %d][Client Account No : %d][Session ID : %p]",
+			iAccountNo, pClient->iAccountNo, iSessionID);
+		CCrashDump::Crash();
+		//return false;
+	}
 
 	////////////////////////////////////////////////////////////////////////////
 	// 섹터 뽑아서 검사후 넣고 섹터 업데이트
 	////////////////////////////////////////////////////////////////////////////
-	*pRecvPacket >> wSectorX;
-	*pRecvPacket >> wSectorY;
+	*pRecvPacket >> shSectorX;
+	*pRecvPacket >> shSectorY;
 
 	////////////////////////////////////////////////////////////////////////////
 	// 섹터 업데이트
 	////////////////////////////////////////////////////////////////////////////
-	UpdateSector(pClient, wSectorX, wSectorY);
+	if (!UpdateSector(pClient, shSectorX, shSectorY))
+	{
+		LOG(L"ChatServer_Error",
+			LOG::LEVEL_ERROR,
+			L"PacketProc_ReqSectorMove - Sector Error : [Account No : %d][Session ID : %p][ClientX : %d][ClientY : %d][X : %d][Y : %d]",
+			iAccountNo, pClient->iAccountNo, iSessionID, pClient->shSectorX, pClient->shSectorY, shSectorX, shSectorY);
+		CCrashDump::Crash();
+	}
+
+	if (pClient->shSectorX == -1 || pClient->shSectorY == -1 || shSectorX != pClient->shSectorX || shSectorY != pClient->shSectorY)
+		CCrashDump::Crash();
 
 	////////////////////////////////////////////////////////////////////////////
 	// 패킷 만들어 보내기
@@ -406,9 +464,15 @@ bool						CChatServer::PacketProc_ReqMessage(__int64 iSessionID, CNPacket *pRecv
 	WORD		wMessageLen = 0;
 	WCHAR		szMessage[1024];
 
-	if (!pClient->bLogin || 
+	if (!pClient->bLogin ||
 		(-1 == pClient->shSectorX || -1 == pClient->shSectorY))
+	{
+		LOG(L"ChatServer_Error",
+			LOG::LEVEL_ERROR,
+			L"PacketProc_ReqMessage - Not Login [Client Account No : %d][Session ID : %p][X : %d][Y : %d]",
+			pClient->iAccountNo, iSessionID, pClient->shSectorX, pClient->shSectorY);
 		return false;
+	}
 
 	pClient->dwRecvPacketTime = GetTickCount64();
 
@@ -417,7 +481,14 @@ bool						CChatServer::PacketProc_ReqMessage(__int64 iSessionID, CNPacket *pRecv
 	////////////////////////////////////////////////////////////////////////////
 	*pRecvPacket >> iAccountNo;
 	if (iAccountNo != pClient->iAccountNo)
-		return false;
+	{
+		LOG(L"ChatServer_Error",
+			LOG::LEVEL_ERROR,
+			L"PacketProc_ReqMessage - Account not equil [Recv Account No : %d][Client Account No : %d][Session ID : %p]",
+			iAccountNo, pClient->iAccountNo, iSessionID);
+		CCrashDump::Crash();
+		//return false;
+	}
 
 	////////////////////////////////////////////////////////////////////////////
 	// 메시지 길이 뽑고 메시지 뽑기
@@ -425,8 +496,15 @@ bool						CChatServer::PacketProc_ReqMessage(__int64 iSessionID, CNPacket *pRecv
 	*pRecvPacket >> (WORD)wMessageLen;
 	
 	memset(szMessage, 0, 1024);
-	if(wMessageLen != pRecvPacket->GetData((unsigned char *)szMessage, wMessageLen))
+	int iMessageLen = pRecvPacket->GetData((unsigned char *)szMessage, wMessageLen);
+	if (wMessageLen != iMessageLen)
+	{
+		LOG(L"ChatServer_Error",
+			LOG::LEVEL_ERROR,
+			L"PacketProc_ReqMessage - Message Length [Account No : %d][Session ID : %p][Message Length : %d][Recv Message Length : %d]",
+			pClient->iAccountNo, iSessionID, wMessageLen, iMessageLen);
 		CCrashDump::Crash();
+	}
 
 	////////////////////////////////////////////////////////////////////////////
 	// 패킷 만들어 보내기
@@ -445,6 +523,11 @@ bool						CChatServer::PacketProc_ReqHeartbeat(__int64 iSessionID, CNPacket *pRe
 	if (nullptr == pClient)
 		return true;
 	
+	pClient->dwRecvPacketTime = GetTickCount64();
+	LOG(L"ChatServer_Debug",
+		LOG::LEVEL_DEBUG,
+		L"Heartbeat - [Session ID : %p][Account No : %d]",
+		iSessionID, pClient->iAccountNo);
 	return true;
 }
 
@@ -459,9 +542,6 @@ CNPacket*					CChatServer::MakePacket_ResLogin(__int64 iAccountNo, BYTE byStatus
 	if (nullptr == pPacket)
 		return nullptr;
 
-	if (0 != pPacket->GetDataSize())
-		CCrashDump::Crash();
-
 	*pPacket << (WORD)en_PACKET_CS_CHAT_RES_LOGIN;
 
 	*pPacket << byStatus;
@@ -470,7 +550,7 @@ CNPacket*					CChatServer::MakePacket_ResLogin(__int64 iAccountNo, BYTE byStatus
 	return pPacket;
 }
 
-CNPacket*					CChatServer::MakePacket_ResSectorMove(__int64 iAccountNo, WORD wSectorX, WORD wSectorY)
+CNPacket*					CChatServer::MakePacket_ResSectorMove(__int64 iAccountNo, short shSectorX, short shSectorY)
 {
 	CNPacket *pPacket = CNPacket::Alloc();
 	if (nullptr == pPacket)
@@ -479,8 +559,8 @@ CNPacket*					CChatServer::MakePacket_ResSectorMove(__int64 iAccountNo, WORD wSe
 	*pPacket << (WORD)en_PACKET_CS_CHAT_RES_SECTOR_MOVE;
 
 	*pPacket << iAccountNo;
-	*pPacket << wSectorX;
-	*pPacket << wSectorY;
+	*pPacket << shSectorX;
+	*pPacket << shSectorY;
 
 	return pPacket;
 }
@@ -530,8 +610,7 @@ void						CChatServer::SendPacket_Around(CLIENT *pClient, CNPacket *pPacket, boo
 				continue;
 
 			pSendClient = SearchClient(*iter);
-			if (!pSendClient->bDisconnect)
-				SendPacket_One(pSendClient, pPacket);
+			SendPacket_One(pSendClient, pPacket);
 		}
 	}
 }
@@ -598,7 +677,10 @@ bool						CChatServer::DeleteClient(__int64 iSessionID)
 	}
 
 	else
+	{
+		LOG(L"ChatServer", LOG::LEVEL_ERROR, L"DeleteClient - Cannot find Client [Session ID : %d]", iSessionID);
 		CCrashDump::Crash();
+	}
 
 	return false;
 }
@@ -619,41 +701,41 @@ CChatServer::CLIENT*			CChatServer::SearchClient(__int64 iSessionID)
 /////////////////////////////////////////////////////////////////////////////////
 // 주변 섹터 얻기
 /////////////////////////////////////////////////////////////////////////////////
-void						CChatServer::GetSectorAround(int iSectorX, int iSectorY, st_SECTOR_AROUND *pSectorAround)
+void						CChatServer::GetSectorAround(short shSectorX, short shSectorY, st_SECTOR_AROUND *pSectorAround)
 {
-	iSectorX--;
-	iSectorY--;
+	shSectorX--;
+	shSectorY--;
 
 	pSectorAround->iCount = 0;
 
 	for (int iCntY = 0; iCntY < 3; iCntY++)
 	{
-		if (iSectorY + iCntY < 0 || iSectorY + iCntY >= eSECTOR_MAX_Y)
+		if (shSectorY + iCntY < 0 || shSectorY + iCntY >= eSECTOR_MAX_Y)
 			continue;
 
 		for (int iCntX = 0; iCntX < 3; iCntX++)
 		{
-			if (iSectorX + iCntX < 0 || iSectorX + iCntX >= eSECTOR_MAX_X)
+			if (shSectorX + iCntX < 0 || shSectorX + iCntX >= eSECTOR_MAX_X)
 				continue;
 
-			pSectorAround->Around[pSectorAround->iCount].iX = iSectorX + iCntX;
-			pSectorAround->Around[pSectorAround->iCount].iY = iSectorY + iCntY;
+			pSectorAround->Around[pSectorAround->iCount].iX = shSectorX + iCntX;
+			pSectorAround->Around[pSectorAround->iCount].iY = shSectorY + iCntY;
 			pSectorAround->iCount++;
 		}
 	}
 }
 
-bool						CChatServer::UpdateSector(CLIENT *pClient, WORD wNewSectorX, WORD wNewSectorY)
+bool						CChatServer::UpdateSector(CLIENT *pClient, short shNewSectorX, short shNewSectorY)
 {
 	__int64 iSessionID = pClient->iSessionID;
 
 	/////////////////////////////////////////////////////////////////////////////
 	//Sector영역 벗어날 때
 	/////////////////////////////////////////////////////////////////////////////
-	if (wNewSectorX < 0 || wNewSectorX >= eSECTOR_MAX_X)		return false;
-	if (wNewSectorY < 0 || wNewSectorY >= eSECTOR_MAX_Y)		return false;
+	if (shNewSectorX < 0 || shNewSectorX >= eSECTOR_MAX_X)		return false;
+	if (shNewSectorY < 0 || shNewSectorY >= eSECTOR_MAX_Y)		return false;
 
-	if ((pClient->shSectorX == wNewSectorX) && (pClient->shSectorY == wNewSectorY))
+	if ((pClient->shSectorX == shNewSectorX) && (pClient->shSectorY == shNewSectorY))
 		return true;
 
 	/////////////////////////////////////////////////////////////////////////////
@@ -662,10 +744,10 @@ bool						CChatServer::UpdateSector(CLIENT *pClient, WORD wNewSectorX, WORD wNew
 	if ((pClient->shSectorX != -1) && (pClient->shSectorY != -1))
 		_Sector[pClient->shSectorY][pClient->shSectorX].remove(iSessionID);
 
-	_Sector[wNewSectorY][wNewSectorX].push_back(iSessionID);
+	_Sector[shNewSectorY][shNewSectorX].push_back(iSessionID);
 
-	pClient->shSectorX = wNewSectorX;
-	pClient->shSectorY = wNewSectorY;
+	pClient->shSectorX = shNewSectorX;
+	pClient->shSectorY = shNewSectorY;
 
 	return true;
 }
@@ -683,6 +765,7 @@ int							CChatServer::MonitorThread_Chat_Update()
 {
 	timeBeginPeriod(1);
 	CLIENT *pClient = nullptr;
+	SESSION *pSession = nullptr;
 	char chkey = 0;
 
 	while (1)
@@ -705,26 +788,35 @@ int							CChatServer::MonitorThread_Chat_Update()
 		_lUpdateCounter = 0;
 	
 		_lClientCount = _Client.size();
-		/*
+
 		for (ClientIter iter = _Client.begin(); iter != _Client.end(); iter++)
 		{
 			pClient = iter->second;
-			if (((GetTickCount64() - pClient->dwRecvPacketTime) > 30000) && (pClient->iAccountNo != 0))
-				CCrashDump::Crash();
+			pSession = _Session[GET_SESSIONINDEX(pClient->iSessionID)];
+
+			if (((GetTickCount64() - pClient->dwRecvPacketTime) > CConfigData::m_System_Timeout_Time) && (pClient->iAccountNo != 0))
+			{
+				LOG(L"ChatServer_Debug",
+					LOG::LEVEL_DEBUG,
+					L"TimeOut [SessionID : %p][iAccountNo : %d][Login : %d][X : %d][Y : %d][Disconnect : %d][RecvPacketTime : %d]",
+					pClient->iSessionID, pClient->iAccountNo, pClient->bLogin, pClient->shSectorX, pClient->shSectorY, pClient->bDisconnect, GetTickCount64() - pClient->dwRecvPacketTime);
+				LOG(L"ChatServer_Debug",
+					LOG::LEVEL_DEBUG,
+					L"SessionInfo [SendQSize : %d][IOCount : %d][ReleaseFlag : %d][SendFlag : %d][lSentPacket : %d]",
+					pSession->_SendQ.GetUseSize(), pSession->_IOBlock->_iIOCount, pSession->_IOBlock->_iReleaseFlag, pSession->_bSendFlag, pSession->_lSentPacketCnt);
+			}
 				//Disconnect(pClient->iSessionID);
 		}
-		*/
 
 		if (_kbhit() != 0){
 			chkey = _getch();
 
 			switch (chkey)
 			{
-			case 'q' :
-			case 'Q' :
+			case 'w':
+			case 'W':
 				CCrashDump::Crash();
 			}
-
 		}
 
 		Sleep(999);

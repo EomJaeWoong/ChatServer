@@ -192,7 +192,7 @@ public:
 		m_chpReadPos = m_chpDataFieldStart;
 		m_chpWritePos = m_chpDataFieldStart;
 
-		m_bEncode = false;
+		m_bEncode = FALSE;
 
 		m_iDataSize = 0;
 
@@ -232,7 +232,10 @@ public:
 		m_chpReadPos = m_chpDataFieldStart;
 		m_chpWritePos = m_chpDataFieldStart;
 
-		m_bEncode = false;
+		if (m_lRefCnt != 0)
+			CCrashDump::Crash();
+
+		m_bEncode = FALSE;
 
 		m_iDataSize = 0;
 	}
@@ -429,7 +432,7 @@ public:
 	{
 		EncodeHeader eHeader;
 
-		if (true == InterlockedCompareExchange((long *)&m_bEncode, true, false))
+		if (TRUE == InterlockedCompareExchange((LONG *)&m_bEncode, TRUE, FALSE))
 			return false;
 
 		//////////////////////////////////////////////////////////////////////
@@ -511,6 +514,7 @@ public:
 	{
 		EncodeHeader *peHeader = (EncodeHeader *)m_chpBuffer;
 
+		
 		//////////////////////////////////////////////////////////////////////
 		// PacketCode와 길이 검사
 		//////////////////////////////////////////////////////////////////////
@@ -570,14 +574,12 @@ public:
 
 		if (peHeader->byCheckSum != byCheckSum)
 			CCrashDump::Crash();
-		//	return false;
-
 
 		memset(m_chpBuffer, 0, eBUFFER_HEADER_SIZE);
 		m_chpReadPos += eBUFFER_HEADER_SIZE;
 		m_iDataSize -= eBUFFER_HEADER_SIZE;
 
-		InterlockedCompareExchange((long *)&m_bEncode, false, true);
+		InterlockedExchange((LONG *)&m_bEncode, FALSE);
 
 		return true;
 	}
@@ -816,11 +818,6 @@ public:
 		return iCnt;
 	}
 
-public :
-	//------------------------------------------------------------
-	// 암호화 여부 플래그
-	//------------------------------------------------------------
-	BOOL							m_bEncode;
 
 protected:
 
@@ -855,6 +852,11 @@ protected:
 	// 할당 카운터
 	//------------------------------------------------------------
 	long							m_lRefCnt;
+
+	//------------------------------------------------------------
+	// 암호화 여부 플래그
+	//------------------------------------------------------------
+	BOOL							m_bEncode;
 
 	//------------------------------------------------------------
 	// 패킷 메모리 풀

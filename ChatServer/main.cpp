@@ -40,7 +40,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		wprintf(L" LoginSessionKey :	%10d\n", 0);
 		wprintf(L" UpdateMessage_Pool :	%10d	UpdateMessage_Queue :	%10d\n", ChatServer._lUpdateMessagePoolTPS, ChatServer._lUpdateMessageQueueTPS);
 		wprintf(L" Player Count	:	%10d	PlayerData_Pool :	%10d\n", ChatServer._lPlayerCount, ChatServer._lPlayerPoolTPS);
-		wprintf(L" Client Count :	%10d\n", ChatServer._lClientCount);
+		wprintf(L" Client Count :		%10d\n", ChatServer._lClientCount);
 		wprintf(L" Session Miss	:	%10d	Session Not Fount :	%10d\n\n\n\n", 0, 0);	
 		wprintf(L"Start time : %04d-%02d-%02d %02d:%02d:%02d\n",
 			lst.wYear, lst.wMonth, lst.wDay, lst.wHour, lst.wMinute, lst.wSecond);

@@ -15,9 +15,6 @@ CNetServer::CNetServer()
 	///////////////////////////////////////////////////////////////////////////////////////
 	ProfileInit();
 
-	SYSLOG_DIRECTORY(L"ChatServerLog");
-	SYSLOG_LEVEL(LOG::LEVEL_DEBUG);
-
 	///////////////////////////////////////////////////////////////////////////////////////
 	// 네트워크 패킷 변수 체크
 	///////////////////////////////////////////////////////////////////////////////////////
@@ -60,6 +57,8 @@ CNetServer::CNetServer()
 
 		_Session[iCnt]->_IOBlock->_iIOCount = 0;
 		_Session[iCnt]->_IOBlock->_iReleaseFlag = FALSE;
+
+		_Session[iCnt]->_Debug = new Debug;
 
 		memset(_Session[iCnt]->_pSentPacket, 0, sizeof(_Session[iCnt]->_pSentPacket));
 		_Session[iCnt]->_lSentPacketCnt = 0;
@@ -119,7 +118,10 @@ bool				CNetServer::Start(WCHAR* wOpenIP, int iPort, int iWorkerThreadNum, bool 
 	///////////////////////////////////////////////////////////////////////////////////////
 	_ListenSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if (INVALID_SOCKET == _ListenSocket)
+	{
+		LOG(L"NetServer_Error", LOG::LEVEL_ERROR, L"ListenSocket socket Error");
 		return false;
+	}
 
 	///////////////////////////////////////////////////////////////////////////////////////
 	// bind
@@ -130,7 +132,10 @@ bool				CNetServer::Start(WCHAR* wOpenIP, int iPort, int iWorkerThreadNum, bool 
 	InetPton(AF_INET, wOpenIP, &serverAddr.sin_addr);
 	result = bind(_ListenSocket, (SOCKADDR *)&serverAddr, sizeof(SOCKADDR_IN));
 	if (SOCKET_ERROR == result)
+	{
+		LOG(L"NetServer_Error", LOG::LEVEL_ERROR, L"bind Error");
 		return false;
+	}
 
 	///////////////////////////////////////////////////////////////////////////////////////
 	// 소켓 Send Buffer 공간을 0으로 설정
@@ -143,7 +148,10 @@ bool				CNetServer::Start(WCHAR* wOpenIP, int iPort, int iWorkerThreadNum, bool 
 	///////////////////////////////////////////////////////////////////////////////////////
 	result = listen(_ListenSocket, SOMAXCONN);
 	if (SOCKET_ERROR == result)
+	{
+		LOG(L"NetServer_Error", LOG::LEVEL_ERROR, L"Listen Error");
 		return false;
+	}
 
 	///////////////////////////////////////////////////////////////////////////////////////
 	// nagle option
@@ -155,12 +163,21 @@ bool				CNetServer::Start(WCHAR* wOpenIP, int iPort, int iWorkerThreadNum, bool 
 	///////////////////////////////////////////////////////////////////////////////////////
 	_hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
 	if (NULL == _hIOCP)
+	{
+		LOG(L"NetServer_Error", LOG::LEVEL_ERROR, L"IOCP Create Error");
 		return false;
+	}
 
 	///////////////////////////////////////////////////////////////////////////////////////
 	// Thread 생성
 	///////////////////////////////////////////////////////////////////////////////////////
 	DWORD dwThreadID;
+
+	if (iWorkerThreadNum > eMAX_THREAD)
+	{
+		LOG(L"NetServer_Error", LOG::LEVEL_ERROR, L"Too Much Worker Thread Count");
+		return false;
+	}
 
 	_hAcceptThread = (HANDLE)_beginthreadex(
 		NULL,
@@ -170,9 +187,6 @@ bool				CNetServer::Start(WCHAR* wOpenIP, int iPort, int iWorkerThreadNum, bool 
 		0,
 		(unsigned int *)&dwThreadID
 		);
-
-	if (iWorkerThreadNum > eMAX_THREAD)
-		return false;
 
 	_iWorkerThreadNum = iWorkerThreadNum;
 
@@ -211,7 +225,7 @@ void				CNetServer::Stop()
 	{
 		CloseHandle(_hAcceptThread);
 		for (int iCnt = 0; iCnt < eMAX_SESSION; iCnt++)
-			DisconnectSession(_Session[iCnt]);
+			Disconnect(_Session[iCnt]->_iSessionID);
 	}
 
 	///////////////////////////////////////////////////////////////////////////////////////
@@ -241,6 +255,11 @@ bool				CNetServer::SendPacket(__int64 iSessionID, CNPacket *pPacket)
 
 	pPacket->Encode();
 
+	((Debug *)pSession->_Debug)->iPreLength = ((Debug *)pSession->_Debug)->iLength;
+	memcpy(((Debug *)pSession->_Debug)->pPrebuf, ((Debug *)pSession->_Debug)->pBuf, 1000);
+	((Debug *)pSession->_Debug)->iLength = pPacket->GetDataSize();
+	memcpy(((Debug *)pSession->_Debug)->pBuf, pPacket->GetBufferHeaderPtr(), pPacket->GetDataSize());
+
 	PRO_BEGIN(L"Packet addref");
 	pPacket->addRef();
 	PRO_END(L"Packet addref");
@@ -269,7 +288,7 @@ bool				CNetServer::Disconnect(__int64 iSessionID)
 	SESSION *pSession = SessionGetLock(iSessionID);
 	if (nullptr == pSession)
 		return false;
-
+	
 	DisconnectSession(pSession);
 
 	SessionGetUnlock(pSession);
@@ -334,6 +353,9 @@ int					CNetServer::AccpetThread_update()
 		///////////////////////////////////////////////////////////////////////////////////
 		if (iBlankIndex < 0)
 		{
+			LOG(L"NetServer_Warning",
+				LOG::LEVEL_WARNING,
+				L"Session Index overflow");
 			closesocket(ClientSocket);
 			continue;
 		}	
@@ -383,7 +405,12 @@ int					CNetServer::AccpetThread_update()
 			(ULONG_PTR)_Session[iBlankIndex],
 			0);
 		if (!hResult)
+		{
+			LOG(L"NetServer_Error",
+				LOG::LEVEL_ERROR,
+				L"IOCP Registration Error");
 			PostQueuedCompletionStatus(_hIOCP, 0, 0, 0);
+		}
 
 		InterlockedIncrement64((LONG64 *)&_Session[iBlankIndex]->_IOBlock->_iIOCount);
 		InterlockedExchange64((LONG64 *)&_Session[iBlankIndex]->_IOBlock->_iReleaseFlag, FALSE);
@@ -395,7 +422,7 @@ int					CNetServer::AccpetThread_update()
 		/////////////////////////////////////////////////////////////////////
 		OnClientJoin(&_Session[iBlankIndex]->_SessionInfo, _Session[iBlankIndex]->_iSessionID);
 
-		InterlockedIncrement((long *)&_lSessionCount);
+		InterlockedIncrement((LONG *)&_lSessionCount);
 
 		PRO_BEGIN(L"RecvPost - AccpetTH");
 		RecvPost(_Session[iBlankIndex], true);
@@ -437,6 +464,7 @@ int					CNetServer::WorkerThread_update()
 		if (result == FALSE && (pOverlapped == NULL || pSession == NULL))
 		{
 			int iErrorCode = WSAGetLastError();
+			LOG(L"NetServer__Error", LOG::LEVEL_ERROR, L"WorkerTh - IOCP Error");
 			OnError(iErrorCode, L"IOCP HANDLE Error\n");
 
 			break;
@@ -455,12 +483,9 @@ int					CNetServer::WorkerThread_update()
 		// 클라이언트 에서 closesocket() 혹은 shutdown() 함수를 호출한 시점
 		//----------------------------------------------------------------------------
 		else if (dwTransferred == 0)
-		{
 			Disconnect(pSession->_iSessionID);
-		}
-		//----------------------------------------------------------------------------
 
-		if (pOverlapped == &(pSession->_RecvOverlapped))
+		else if (pOverlapped == &(pSession->_RecvOverlapped))
 		{
 			PRO_BEGIN(L"CompleteRecv");
 			CompleteRecv(pSession, dwTransferred);
@@ -569,7 +594,7 @@ void				CNetServer::RecvPost(SESSION *pSession, bool bAcceptRecv)
 			///////////////////////////////////////////////////////////////////////////////
 			if (WSAENOBUFS == iErrorCode)
 			{
-				LOG(L"NetServer", LOG::LEVEL_ERROR, L"Recv WSAENOBUFS [SessionID : %p]", pSession->_iSessionID);
+				LOG(L"NetServer_Error", LOG::LEVEL_ERROR, L"Recv WSAENOBUFS [SessionID : %p]", pSession->_iSessionID);
 				CCrashDump::Crash();
 			}
 
@@ -581,12 +606,16 @@ void				CNetServer::RecvPost(SESSION *pSession, bool bAcceptRecv)
 			if ((WSAECONNABORTED != iErrorCode) &&
 				(WSAECONNRESET != iErrorCode) &&
 				(WSAESHUTDOWN != iErrorCode))
+			{
+				LOG(L"NetServer_Error", LOG::LEVEL_ERROR, L"WSARecv Error [ErrorCode : %d][SessionID : %p]", iErrorCode, pSession->_iSessionID);
 				CCrashDump::Crash();
+			}
 
 			if (0 == InterlockedDecrement64((LONG64 *)&pSession->_IOBlock->_iIOCount))
 				ReleaseSession(pSession);
 		}
 	}
+
 	PRO_END(L"WSARecv");
 }
 
@@ -627,9 +656,6 @@ bool				CNetServer::SendPost(SESSION *pSession)
 
 		if (eMAX_WSABUF <= iSendQUseSize)
 			iSendQUseSize = eMAX_WSABUF;
-		
-		if (nullptr != pSession->_pSentPacket[0])
-			CCrashDump::Crash();
 
 		///////////////////////////////////////////////////////////////////////////////////
 		// WSABUF에 패킷 넣기
@@ -638,7 +664,10 @@ bool				CNetServer::SendPost(SESSION *pSession)
 		for (iCount = 0; iCount < iSendQUseSize; iCount++)
 		{
 			if (!pSession->_SendQ.Get(&pPacket))
+			{
+				LOG(L"NetServer_Error", LOG::LEVEL_ERROR, L"SendPost - SendQ Empty[Session ID : %p]", pSession->_iSessionID);
 				CCrashDump::Crash();
+			}
 
 			wBuf[iCount].buf = (char *)pPacket->GetBufferHeaderPtr();
 			wBuf[iCount].len = pPacket->GetDataSize();
@@ -693,11 +722,12 @@ bool				CNetServer::SendPost(SESSION *pSession)
 				if ((WSAECONNABORTED != iErrorCode) &&
 					(WSAECONNRESET != iErrorCode) &&
 					(WSAESHUTDOWN != iErrorCode))
+				{
+					LOG(L"NetServer_Error", LOG::LEVEL_ERROR, L"WSASend Error [ErrorCode : %d][SessionID : %p]", iErrorCode, pSession->_iSessionID);
 					CCrashDump::Crash();
-				
-				LOG(L"NetServer", LOG::LEVEL_DEBUG, L"SendPost [SessionID : %p][ErrorCode : %d][iCount : %d][SendQ : %d][SentCount : %d]",
-					pSession->_iSessionID, iErrorCode, iCount, pSession->_SendQ.GetUseSize(), pSession->_lSentPacketCnt);
+				}
 
+				LOG(L"NetServer_Debug", LOG::LEVEL_DEBUG, L"WSASend Error [ErrorCode : %d][SessionID : %p]", iErrorCode, pSession->_iSessionID);
 				if (0 == InterlockedDecrement64((LONG64 *)&pSession->_IOBlock->_iIOCount))
 					ReleaseSession(pSession);
 			}
@@ -722,7 +752,10 @@ bool				CNetServer::CompleteRecv(SESSION *pSession, DWORD dwTransferred)
 	// RecvQ WritePos 이동(받은 만큼)
 	//////////////////////////////////////////////////////////////////////////////
 	if (dwTransferred != pSession->_RecvQ.MoveWritePos(dwTransferred))
+	{
+		LOG(L"NetServer_Error", LOG::LEVEL_ERROR, L"CompleteRecv - Transferr Error [Transferred : %d]", dwTransferred);
 		CCrashDump::Crash();
+	}
 
 	while (pSession->_RecvQ.GetUseSize() > 0)
 	{
@@ -758,8 +791,9 @@ bool				CNetServer::CompleteRecv(SESSION *pSession, DWORD dwTransferred)
 		//////////////////////////////////////////////////////////////////////////
 		if (!pRecvPacket->Decode())
 		{
-			LOG(L"NetServer", LOG::LEVEL_WARNING, L"Packet Decode Fail - SessionID : %08d, Packet Address : %p",
-				pSession->_iSessionID, pRecvPacket);
+			LOG(L"NetServer_Error", LOG::LEVEL_ERROR, L"Packet Decode Fail - [SessionID : %p]",
+				pSession->_iSessionID);
+			LOG_HEX(L"NetServer_Error", LOG::LEVEL_ERROR, pRecvPacket->GetBufferHeaderPtr(), pRecvPacket->GetDataSize());
 			Disconnect(pSession->_iSessionID);
 		}
 
@@ -801,6 +835,11 @@ bool				CNetServer::CompleteSend(SESSION *pSession, DWORD dwTransferred)
 
 	pSession->_lSentPacketCnt -= iSentCnt;
 
+	if (0 != pSession->_lSentPacketCnt)
+		LOG(L"NetServer_Warning",
+		LOG::LEVEL_WARNING,
+		L"CompleteSend - SentPacket not 0 [Session ID : %d][SentPacketCnt : %d]",
+		pSession->_iSessionID, pSession->_lSentPacketCnt);
 	PRO_END(L"SentPacket Remove");
 
 	OnSend(pSession->_iSessionID, dwTransferred);
@@ -836,9 +875,11 @@ SESSION*			CNetServer::SessionGetLock(__int64 iSessionID)
 	if (1 == InterlockedIncrement64((LONG64 *)&_Session[iSessionIndex]->_IOBlock->_iIOCount))
 	{
 		if (0 == InterlockedDecrement64((LONG64 *)&_Session[iSessionIndex]->_IOBlock->_iIOCount))
+		{
 			ReleaseSession(_Session[iSessionIndex]);
 
-		return nullptr;
+			return nullptr;
+		}
 	}
 
 	if (iSessionID != _Session[iSessionIndex]->_iSessionID)
@@ -856,7 +897,7 @@ SESSION*			CNetServer::SessionGetLock(__int64 iSessionID)
 
 		return nullptr;
 	}
-
+	
 	return _Session[iSessionIndex];
 }
 
@@ -879,7 +920,12 @@ int					CNetServer::GetBlankSessionIndex()
 	int iBlankIndex;
 
 	if (_pBlankStack->isEmpty())
+	{
+		LOG(L"NetServer_Error",
+			LOG::LEVEL_ERROR,
+			L"GetBlankSessionIndex - BlankStack is Empty");
 		CCrashDump::Crash();
+	}
 
 	else
 		_pBlankStack->Pop(&iBlankIndex);
@@ -918,7 +964,6 @@ void				CNetServer::CloseSocket(SOCKET socket)
 void				CNetServer::ReleaseSession(SESSION *pSession)
 {
 	IOBlock stCompareBlock;
-	__int64 iSessionID = pSession->_iSessionID;;
 
 	stCompareBlock._iIOCount = 0;
 	stCompareBlock._iReleaseFlag = 0;
@@ -934,10 +979,10 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 		))
 		return;
 
+	OnClientLeave(pSession->_iSessionID);
+
 	closesocket(pSession->_SessionInfo._Socket);
 
-	
-	pSession->_iSessionID = -1;
 	pSession->_SessionInfo._Socket = INVALID_SOCKET;
 
 	pSession->_SessionInfo._iPort = 0;
@@ -970,11 +1015,16 @@ void				CNetServer::ReleaseSession(SESSION *pSession)
 	}
 	
 	pSession->_lSentPacketCnt -= iSentCnt;
+	if (0 != pSession->_lSentPacketCnt)
+		LOG(L"NetServer_Debug",
+		LOG::LEVEL_DEBUG,
+		L"ReleaseSession - _lSentPacketCnt is not 0 [SessionID : %p][SentCnt : %d]",
+		pSession->_iSessionID, pSession->_lSentPacketCnt);
 
 	InterlockedExchange((LONG *)&pSession->_bSendFlag, FALSE);
 
-	OnClientLeave(iSessionID);
-
+	__int64 iSessionID = pSession->_iSessionID;
+	pSession->_iSessionID = -1;
 	InsertBlankSessionIndex(GET_SESSIONINDEX(iSessionID));
 
 	InterlockedDecrement((LONG *)&_lSessionCount);

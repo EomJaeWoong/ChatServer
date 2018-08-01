@@ -1,6 +1,14 @@
 #ifndef __NETSERVER__H__
 #define __NETSERVER__H__
 
+typedef struct
+{
+	int iPreLength;
+	char pPrebuf[1000];
+	int iLength;
+	char pBuf[1000];
+} Debug;
+
 class CNetServer
 {
 private :
@@ -38,7 +46,7 @@ public :
 	void						Stop();
 
 	///////////////////////////////////////////////////////////////////////////////////////////
-	// 연결 끊기
+	// 패킷 전송
 	///////////////////////////////////////////////////////////////////////////////////////////
 	bool						SendPacket(__int64 iSessionID, CNPacket *pPacket);
 
@@ -61,7 +69,7 @@ public :
 
 protected :
 	///////////////////////////////////////////////////////////////////////////////////////////
-	// 가상 함수들
+	// 핸들러
 	// 상속받은 클래스부에서 제작(컨텐츠 부)
 	// OnClientJoin			- accept후 접속처리 완료 후 호출
 	// OnClientLeave		- Disconnect 후 호출
@@ -198,6 +206,7 @@ private :
 	//////////////////////////////////////////////////////////////////////////////////////////
 	int							_iWorkerThreadNum;
 
+	protected :
 	//////////////////////////////////////////////////////////////////////////////////////////
 	// Session(Array)
 	//////////////////////////////////////////////////////////////////////////////////////////
@@ -221,7 +230,7 @@ private :
 // GET_SESSIONID			- 세션 ID 얻기
 // GET_SESSIONINDEX			- 세션 Index 얻기
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define			COMBINE_ID_WITH_INDEX(ID, INDEX)	((ID << 0x10) | ((short)INDEX))
+#define			COMBINE_ID_WITH_INDEX(ID, INDEX)	(((__int64)ID << 0x10) | ((__int64)INDEX))
 #define			GET_SESSIONID(ID)					((ID & 0xFFFFFF00) >>0x10)
 #define			GET_SESSIONINDEX(ID)				(ID & 0xFFFF)
 
